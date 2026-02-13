@@ -17,7 +17,7 @@ export default function Home() {
           <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
             Snowflake Capacity Platform
           </span>
-        </h1>
+          </h1>
         <p className="text-gray-400 mt-2 text-lg relative z-10">Welcome to SnowCap - your central platform for managing Snowflake capacity resources.</p>
       </div>
 
@@ -66,7 +66,7 @@ export default function Home() {
                 <span className="text-gray-300">{activity.action}</span>
               </div>
               <span className="text-sm text-gray-600">{activity.time}</span>
-            </div>
+        </div>
           ))}
         </div>
       </div>
