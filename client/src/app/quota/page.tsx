@@ -1,176 +1,251 @@
-import { Database, Users, TrendingUp, Settings, Zap } from 'lucide-react';
+'use client';
+
+import { useState, useMemo } from 'react';
+import { Database, BarChart3, ArrowUpDown, Headphones, ChevronDown, X, AlertTriangle, AlertCircle, Gauge } from 'lucide-react';
+import {
+  CLOUD_PROVIDERS, REGIONS, TENANT_IDS, SUBSCRIPTIONS, INSTANCE_TYPES,
+  QUOTA_USAGE_DATA, type QuotaUsageItem,
+} from './constants';
+import CurrentUsageTab from './components/CurrentUsageTab';
+import QuotaAdjustmentsTab from './components/QuotaAdjustmentsTab';
+import SupportCasesTab from './components/SupportCasesTab';
+
+const tabs = [
+  { id: 'current-usage', label: 'Current Usage', icon: BarChart3 },
+  { id: 'adjustments', label: 'Quota Adjustments', icon: ArrowUpDown },
+  { id: 'support', label: 'Support Cases', icon: Headphones },
+];
 
 export default function Quota() {
-  const quotas = [
-    { team: 'Engineering Team', allocated: 5000, used: 3750, unit: 'GB', members: 45, trend: '+5%' },
-    { team: 'Data Science Team', allocated: 8000, used: 7200, unit: 'GB', members: 28, trend: '+12%' },
-    { team: 'Marketing Team', allocated: 2000, used: 1200, unit: 'GB', members: 32, trend: '+3%' },
-    { team: 'Product Team', allocated: 3500, used: 2100, unit: 'GB', members: 38, trend: '+8%' },
-    { team: 'Operations Team', allocated: 4000, used: 2800, unit: 'GB', members: 22, trend: '+6%' },
-  ];
+  const [activeTab, setActiveTab] = useState('current-usage');
 
-  const getUsagePercentage = (used: number, allocated: number) => {
-    return Math.round((used / allocated) * 100);
+  // Filter state
+  const [cloud, setCloud] = useState('All');
+  const [region, setRegion] = useState('All Regions');
+  const [tenant, setTenant] = useState('all');
+  const [subscription, setSubscription] = useState('all');
+  const [instanceType, setInstanceType] = useState('All Types');
+
+  const availableRegions = REGIONS[cloud] || REGIONS['All'];
+
+  // Reset region when cloud changes
+  const handleCloudChange = (val: string) => {
+    setCloud(val);
+    setRegion('All Regions');
   };
 
-  const getUsageColor = (percentage: number) => {
-    if (percentage >= 90) return 'from-red-500 to-red-600';
-    if (percentage >= 75) return 'from-yellow-500 to-orange-500';
-    return 'from-[#29B5E8] to-[#56C9F5]';
+  // Compute filtered data
+  const filteredUsage: QuotaUsageItem[] = useMemo(() => {
+    return QUOTA_USAGE_DATA.filter((item) => {
+      if (cloud !== 'All' && item.cloud !== cloud) return false;
+      if (region !== 'All Regions' && item.region !== region) return false;
+      if (tenant !== 'all') {
+        const tenantLabel = TENANT_IDS.find((t) => t.id === tenant)?.label;
+        if (tenantLabel && item.tenantId !== tenantLabel) return false;
+      }
+      if (subscription !== 'all') {
+        const subLabel = SUBSCRIPTIONS.find((s) => s.id === subscription)?.label;
+        if (subLabel && item.subscriptionName !== subLabel) return false;
+      }
+      if (instanceType !== 'All Types' && item.instanceType !== instanceType) return false;
+      return true;
+    });
+  }, [cloud, region, tenant, subscription, instanceType]);
+
+  // Active filter chips
+  const activeFilters: { label: string; clear: () => void }[] = [];
+  if (cloud !== 'All') activeFilters.push({ label: cloud, clear: () => handleCloudChange('All') });
+  if (region !== 'All Regions') activeFilters.push({ label: region, clear: () => setRegion('All Regions') });
+  if (tenant !== 'all') {
+    const t = TENANT_IDS.find((t) => t.id === tenant);
+    if (t) activeFilters.push({ label: t.label, clear: () => setTenant('all') });
+  }
+  if (subscription !== 'all') {
+    const s = SUBSCRIPTIONS.find((s) => s.id === subscription);
+    if (s) activeFilters.push({ label: s.label, clear: () => setSubscription('all') });
+  }
+  if (instanceType !== 'All Types') activeFilters.push({ label: instanceType, clear: () => setInstanceType('All Types') });
+
+  // Summary metrics
+  const totalQuotas = filteredUsage.length;
+  const highUsage = filteredUsage.filter((q) => (q.usage / q.limit) * 100 >= 80).length;
+  const mediumUsage = filteredUsage.filter((q) => {
+    const pct = (q.usage / q.limit) * 100;
+    return pct >= 50 && pct < 80;
+  }).length;
+
+  const clearAllFilters = () => {
+    setCloud('All');
+    setRegion('All Regions');
+    setTenant('all');
+    setSubscription('all');
+    setInstanceType('All Types');
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-5xl font-bold">
-            <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
-              Quota Management
-            </span>
-          </h1>
-          <p className="text-gray-400 mt-2 text-lg">Allocate and monitor team resource quotas</p>
-        </div>
-        <button className="group relative bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white px-6 py-3 rounded-xl hover:shadow-lg hover:shadow-[#29B5E8]/50 transition-all duration-300 font-medium flex items-center gap-2">
-          <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-          Adjust Quotas
-        </button>
+      <div>
+        <h1 className="text-5xl font-bold">
+          <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
+            Quota Management
+          </span>
+        </h1>
+        <p className="text-gray-400 mt-2 text-lg">Monitor usage, manage adjustments, and track support cases</p>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="relative group bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-[#29B5E8]/50 transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#29B5E8]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-[#29B5E8] to-[#1E88B5] shadow-lg shadow-[#29B5E8]/30">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Total Allocated</h3>
-            </div>
-            <p className="text-4xl font-bold text-white">22.5 TB</p>
-            <p className="text-sm text-gray-500 mt-2">Across all teams</p>
-          </div>
+      {/* Filter Bar */}
+      <div className="bg-[#0a0a0a] rounded-2xl p-5 border border-[#1a1a1a]">
+        <div className="flex items-center gap-2 mb-4">
+          <Database className="w-4 h-4 text-[#29B5E8]" />
+          <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Filters</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <FilterSelect label="Cloud Provider" value={cloud} onChange={handleCloudChange} options={CLOUD_PROVIDERS.map((c) => ({ value: c, label: c }))} />
+          <FilterSelect label="Region" value={region} onChange={setRegion} options={availableRegions.map((r) => ({ value: r, label: r }))} />
+          <FilterSelect label="Tenant ID" value={tenant} onChange={setTenant} options={TENANT_IDS.map((t) => ({ value: t.id, label: t.label }))} />
+          <FilterSelect label="Subscription" value={subscription} onChange={setSubscription} options={SUBSCRIPTIONS.map((s) => ({ value: s.id, label: s.label }))} />
+          <FilterSelect label="Instance Type" value={instanceType} onChange={setInstanceType} options={INSTANCE_TYPES.map((t) => ({ value: t, label: t }))} />
         </div>
 
-        <div className="relative group bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-emerald-500/50 transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Total Teams</h3>
-            </div>
-            <p className="text-4xl font-bold text-white">5</p>
-            <p className="text-sm text-gray-500 mt-2">Active teams</p>
+        {/* Active Filter Chips */}
+        {activeFilters.length > 0 && (
+          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#1a1a1a]">
+            <span className="text-xs text-gray-500 uppercase tracking-wider mr-1">Active:</span>
+            {activeFilters.map((f, i) => (
+              <button
+                key={i}
+                onClick={f.clear}
+                className="group flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#29B5E8]/10 border border-[#29B5E8]/30 text-[#29B5E8] text-xs font-medium hover:bg-[#29B5E8]/20 transition-all"
+              >
+                {f.label}
+                <X className="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity" />
+              </button>
+            ))}
+            <button
+              onClick={clearAllFilters}
+              className="text-xs text-gray-500 hover:text-white transition-colors ml-1"
+            >
+              Clear all
+            </button>
           </div>
-        </div>
-
-        <div className="relative group bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-violet-500/50 transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Avg. Usage</h3>
-            </div>
-            <p className="text-4xl font-bold text-white">75.3%</p>
-            <p className="text-sm text-gray-500 mt-2">Utilization rate</p>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Team Quotas */}
-      <div className="relative bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] overflow-hidden">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-[#29B5E8] opacity-5 blur-3xl rounded-full"></div>
-        <h2 className="text-2xl font-semibold text-white mb-6 relative z-10">Team Quotas</h2>
-        <div className="space-y-6 relative z-10">
-          {quotas.map((quota, index) => {
-            const percentage = getUsagePercentage(quota.used, quota.allocated);
-            return (
-              <div key={index} className="group relative bg-black/50 border border-[#1a1a1a] rounded-2xl p-6 hover:border-[#29B5E8]/30 transition-all duration-300 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#29B5E8]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-white mb-2">{quota.team}</h3>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-1.5 rounded-lg">
-                          <Users className="w-4 h-4 text-[#29B5E8]" />
-                          <span className="text-gray-400">{quota.members} members</span>
-                        </div>
-                        <div className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-1.5 rounded-lg">
-                          <TrendingUp className="w-4 h-4 text-emerald-500" />
-                          <span className="text-gray-400">{quota.trend} growth</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button className="text-[#29B5E8] hover:text-[#56C9F5] font-medium text-sm transition-colors bg-[#29B5E8]/10 px-4 py-2 rounded-lg hover:bg-[#29B5E8]/20">
-                      Edit Quota
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">
-                        {quota.used} {quota.unit} used of {quota.allocated} {quota.unit}
-                      </span>
-                      <span className="font-semibold text-white bg-[#1a1a1a] px-3 py-1 rounded-lg">{percentage}%</span>
-                    </div>
-                    <div className="relative w-full bg-[#1a1a1a] rounded-full h-3 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-500 bg-gradient-to-r ${getUsageColor(percentage)} shadow-lg`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-[#1a1a1a] flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[#29B5E8]" />
-                      <span className="text-gray-400">
-                        Available: <span className="text-white font-medium">{quota.allocated - quota.used} {quota.unit}</span>
-                      </span>
-                    </div>
-                    {percentage >= 90 && (
-                      <span className="text-red-400 font-medium flex items-center gap-1 bg-red-500/10 px-3 py-1 rounded-lg">
-                        ⚠️ Quota nearly exhausted
-                      </span>
-                    )}
-                    {percentage >= 75 && percentage < 90 && (
-                      <span className="text-yellow-400 font-medium flex items-center gap-1 bg-yellow-500/10 px-3 py-1 rounded-lg">
-                        ⚠️ High usage
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Summary Strip */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryCard
+          icon={<Gauge className="w-5 h-5 text-[#29B5E8]" />}
+          label="Total Quotas"
+          value={totalQuotas}
+          accent="border-[#29B5E8]/30 hover:border-[#29B5E8]/50"
+          bgGlow="from-[#29B5E8]/10"
+        />
+        <SummaryCard
+          icon={<AlertTriangle className="w-5 h-5 text-red-400" />}
+          label="High Usage"
+          subtitle="≥ 80%"
+          value={highUsage}
+          accent="border-red-500/30 hover:border-red-500/50"
+          bgGlow="from-red-500/10"
+        />
+        <SummaryCard
+          icon={<AlertCircle className="w-5 h-5 text-yellow-400" />}
+          label="Medium Usage"
+          subtitle="50–79%"
+          value={mediumUsage}
+          accent="border-yellow-500/30 hover:border-yellow-500/50"
+          bgGlow="from-yellow-500/10"
+        />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="relative group bg-gradient-to-br from-[#29B5E8]/10 to-transparent rounded-2xl p-6 border border-[#29B5E8]/30 overflow-hidden hover:border-[#29B5E8]/50 transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#29B5E8] opacity-10 blur-2xl rounded-full"></div>
-          <h3 className="text-xl font-semibold text-white mb-2 relative z-10">Bulk Quota Update</h3>
-          <p className="text-gray-400 text-sm mb-4 relative z-10">Update quotas for multiple teams at once</p>
-          <button className="relative z-10 bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-[#29B5E8]/50 transition-all text-sm font-medium">
-            Start Bulk Update
-          </button>
-        </div>
+      {/* Pill Tabs */}
+      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                relative flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-300
+                ${isActive
+                  ? 'bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white shadow-lg shadow-[#29B5E8]/30'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                }
+              `}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="relative group bg-gradient-to-br from-violet-500/10 to-transparent rounded-2xl p-6 border border-violet-500/30 overflow-hidden hover:border-violet-500/50 transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500 opacity-10 blur-2xl rounded-full"></div>
-          <h3 className="text-xl font-semibold text-white mb-2 relative z-10">Usage Analytics</h3>
-          <p className="text-gray-400 text-sm mb-4 relative z-10">View detailed usage patterns and trends</p>
-          <button className="relative z-10 bg-gradient-to-r from-violet-500 to-purple-600 text-white px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm font-medium">
-            View Analytics
-          </button>
+      {/* Tab Content */}
+      {activeTab === 'current-usage' && <CurrentUsageTab data={filteredUsage} />}
+      {activeTab === 'adjustments' && <QuotaAdjustmentsTab />}
+      {activeTab === 'support' && <SupportCasesTab />}
+    </div>
+  );
+}
+
+/* ─── Filter Select ─── */
+
+function FilterSelect({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="relative">
+      <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">{label}</label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none bg-[#111] border border-[#2a2a2a] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#29B5E8]/50 focus:border-[#29B5E8]/50 transition-all cursor-pointer hover:border-[#3a3a3a] pr-9"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Summary Card ─── */
+
+function SummaryCard({
+  icon, label, subtitle, value, accent, bgGlow,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  subtitle?: string;
+  value: number;
+  accent: string;
+  bgGlow: string;
+}) {
+  return (
+    <div className={`relative group bg-[#0a0a0a] rounded-2xl p-5 border ${accent} transition-all duration-300 overflow-hidden`}>
+      <div className={`absolute inset-0 bg-gradient-to-br ${bgGlow} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+      <div className="relative z-10 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-black/50 border border-[#1a1a1a]">
+            {icon}
+          </div>
+          <div>
+            <p className="text-sm text-gray-400 font-medium">{label}</p>
+            {subtitle && <p className="text-[11px] text-gray-600">{subtitle}</p>}
+          </div>
         </div>
+        <p className="text-3xl font-bold text-white">{value}</p>
       </div>
     </div>
   );

@@ -1,150 +1,143 @@
-import { BarChart3, HardDrive, TrendingUp, AlertCircle, Sparkles } from 'lucide-react';
+'use client';
+
+import { useState } from 'react';
+import { BarChart3, Table2, Code2, ChevronDown, SlidersHorizontal } from 'lucide-react';
+import {
+  CLOUD_PROVIDERS, VIEW_TYPES, PRODUCTS, REGIONS, DEPLOYMENTS,
+  WAREHOUSE_TYPES, DEMAND_METRICS,
+} from './constants';
+import { DatePicker } from '@/components/ui/date-picker';
+import GraphViewTab from './components/GraphViewTab';
+import TabularViewTab from './components/TabularViewTab';
+import QueryViewTab from './components/QueryViewTab';
+
+const tabs = [
+  { id: 'graph', label: 'Graph View', icon: BarChart3 },
+  { id: 'tabular', label: 'Tabular View', icon: Table2 },
+  { id: 'query', label: 'Query View', icon: Code2 },
+];
 
 export default function CapacityOverview() {
-  const capacityData = [
-    { name: 'Storage Pool A', used: 75, total: 100, unit: 'TB', status: 'healthy' },
-    { name: 'Storage Pool B', used: 45, total: 80, unit: 'TB', status: 'healthy' },
-    { name: 'Storage Pool C', used: 92, total: 100, unit: 'TB', status: 'warning' },
-    { name: 'Storage Pool D', used: 30, total: 120, unit: 'TB', status: 'healthy' },
-  ];
+  const [activeTab, setActiveTab] = useState('graph');
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return 'bg-[#29B5E8]';
-      case 'warning':
-        return 'bg-yellow-500';
-      case 'critical':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
+  const [cloud, setCloud] = useState<string>('Azure');
+  const [viewType, setViewType] = useState<string>('All');
+  const [product, setProduct] = useState<string>('Snowpark');
+  const [region, setRegion] = useState<string>('East US 2');
+  const [deployment, setDeployment] = useState<string>('Primary');
+  const [warehouseType, setWarehouseType] = useState<string>('Snowpark-Optimized');
+  const [fromDate, setFromDate] = useState('2025-09-01');
+  const [toDate, setToDate] = useState('2026-08-15');
+  const [metric, setMetric] = useState<string>('Maximum');
 
-  const getUsagePercentage = (used: number, total: number) => {
-    return Math.round((used / total) * 100);
-  };
+  const filters = { cloud, viewType, product, region, deployment, warehouseType, fromDate, toDate, metric };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-5xl font-bold">
-            <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
-              Capacity Overview
-            </span>
-          </h1>
-          <p className="text-gray-400 mt-2 text-lg">Monitor and analyze storage capacity across all pools</p>
-        </div>
-        <button className="group relative bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white px-6 py-3 rounded-xl hover:shadow-lg hover:shadow-[#29B5E8]/50 transition-all duration-300 font-medium">
-          <span className="relative z-10 flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            Generate Report
+      <div className="relative">
+        <div className="absolute -top-16 -right-16 w-80 h-80 bg-[#29B5E8] opacity-[0.07] blur-3xl rounded-full pointer-events-none" />
+        <h1 className="text-5xl font-bold relative z-10">
+          <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
+            Capacity Overview
           </span>
-        </button>
+        </h1>
+        <p className="text-gray-400 mt-2 text-lg relative z-10">Analyze historical demand and forecast trends</p>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="relative group bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-[#29B5E8]/50 transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#29B5E8]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-[#29B5E8] to-[#1E88B5] shadow-lg shadow-[#29B5E8]/30">
-                <HardDrive className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Total Capacity</h3>
-            </div>
-            <p className="text-4xl font-bold text-white">400 TB</p>
-            <p className="text-sm text-gray-500 mt-2">Across all pools</p>
-          </div>
+      {/* Filter Bar */}
+      <div className="relative rounded-2xl overflow-hidden">
+        {/* Gradient border effect */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#29B5E8]/20 via-transparent to-violet-500/10 p-px">
+          <div className="w-full h-full rounded-2xl bg-[#0a0a0a]" />
         </div>
-
-        <div className="relative group bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-emerald-500/50 transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Used Capacity</h3>
+        <div className="relative p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-lg bg-[#29B5E8]/10">
+              <SlidersHorizontal className="w-4 h-4 text-[#29B5E8]" />
             </div>
-            <p className="text-4xl font-bold text-white">242 TB</p>
-            <p className="text-sm text-gray-500 mt-2">60.5% utilized</p>
+            <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Filters</span>
           </div>
-        </div>
 
-        <div className="relative group bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-violet-500/50 transition-all duration-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-white">Growth Rate</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-3">
+            <FilterSelect label="Cloud Provider" value={cloud} onChange={setCloud} options={CLOUD_PROVIDERS.map((c) => ({ value: c, label: c }))} />
+            <FilterSelect label="View Type" value={viewType} onChange={setViewType} options={VIEW_TYPES.map((v) => ({ value: v, label: v }))} />
+            <FilterSelect label="Product" value={product} onChange={setProduct} options={PRODUCTS.map((p) => ({ value: p, label: p }))} />
+            <FilterSelect label="Region" value={region} onChange={setRegion} options={REGIONS.map((r) => ({ value: r, label: r }))} />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <FilterSelect label="Deployment" value={deployment} onChange={setDeployment} options={DEPLOYMENTS.map((d) => ({ value: d, label: d }))} />
+            <FilterSelect label="Warehouse Type" value={warehouseType} onChange={setWarehouseType} options={WAREHOUSE_TYPES.map((w) => ({ value: w, label: w }))} />
+            <div>
+              <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">From Date</label>
+              <DatePicker value={fromDate} onChange={setFromDate} placeholder="Start date" className="bg-[#111] border-[#2a2a2a] hover:bg-[#111] hover:border-[#3a3a3a]" />
             </div>
-            <p className="text-4xl font-bold text-white">+8.2%</p>
-            <p className="text-sm text-gray-500 mt-2">Last 30 days</p>
+            <div>
+              <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">To Date</label>
+              <DatePicker value={toDate} onChange={setToDate} placeholder="End date" className="bg-[#111] border-[#2a2a2a] hover:bg-[#111] hover:border-[#3a3a3a]" />
+            </div>
+            <FilterSelect label="Demand Metric" value={metric} onChange={setMetric} options={DEMAND_METRICS.map((m) => ({ value: m, label: m }))} />
           </div>
         </div>
       </div>
 
-      {/* Storage Pools */}
-      <div className="relative bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] overflow-hidden">
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#29B5E8] opacity-5 blur-3xl rounded-full"></div>
-        <h2 className="text-2xl font-semibold text-white mb-6 relative z-10">Storage Pools</h2>
-        <div className="space-y-6 relative z-10">
-          {capacityData.map((pool, index) => {
-            const percentage = getUsagePercentage(pool.used, pool.total);
-            return (
-              <div key={index} className="space-y-3 p-4 rounded-xl bg-black/50 border border-[#1a1a1a] hover:border-[#29B5E8]/30 transition-all">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${getStatusColor(pool.status)} shadow-lg ${pool.status === 'healthy' ? 'shadow-[#29B5E8]/50' : 'shadow-yellow-500/50'} animate-pulse`} />
-                    <span className="font-semibold text-white">{pool.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-400">
-                      {pool.used} / {pool.total} {pool.unit}
-                    </span>
-                    <span className="text-sm font-semibold text-[#29B5E8] w-12 text-right">
-                      {percentage}%
-                    </span>
-                  </div>
-                </div>
-                <div className="relative w-full bg-[#1a1a1a] rounded-full h-3 overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      percentage >= 90 
-                        ? 'bg-gradient-to-r from-red-500 to-red-600 shadow-lg shadow-red-500/50' 
-                        : percentage >= 75 
-                        ? 'bg-gradient-to-r from-yellow-500 to-orange-500 shadow-lg shadow-yellow-500/50' 
-                        : 'bg-gradient-to-r from-[#29B5E8] to-[#56C9F5] shadow-lg shadow-[#29B5E8]/50'
-                    }`}
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Pill Tabs */}
+      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                relative flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-300
+                ${isActive
+                  ? 'bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white shadow-lg shadow-[#29B5E8]/30'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+                }
+              `}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Alerts */}
-      <div className="relative bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-2xl p-6 overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500 opacity-5 blur-3xl rounded-full"></div>
-        <div className="flex items-start gap-4 relative z-10">
-          <div className="p-3 rounded-xl bg-yellow-500/20 border border-yellow-500/30">
-            <AlertCircle className="w-6 h-6 text-yellow-500 flex-shrink-0" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-yellow-400 mb-2 text-lg">Capacity Warning</h3>
-            <p className="text-gray-300">
-              Storage Pool C is at 92% capacity. Consider expanding or reallocating resources.
-            </p>
-          </div>
-        </div>
+      {/* Tab Content */}
+      {activeTab === 'graph' && <GraphViewTab filters={filters} />}
+      {activeTab === 'tabular' && <TabularViewTab />}
+      {activeTab === 'query' && <QueryViewTab filters={filters} />}
+    </div>
+  );
+}
+
+/* ─── Filter Select ─── */
+
+function FilterSelect({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="relative">
+      <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">{label}</label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none bg-[#111] border border-[#2a2a2a] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#29B5E8]/50 focus:border-[#29B5E8]/50 transition-all cursor-pointer hover:border-[#3a3a3a] pr-9"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, FileText, Database, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, BarChart3, FileText, Database, Calendar, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { useSidebar } from '@/app/layout';
 import Image from 'next/image';
 
@@ -12,6 +12,7 @@ const navItems = [
   { name: 'Request', href: '/request', icon: FileText },
   { name: 'Quota', href: '/quota', icon: Database },
   { name: 'Reservation', href: '/reservation', icon: Calendar },
+  { name: 'Admin', href: '/admin', icon: Shield },
 ];
 
 export default function Sidebar() {
