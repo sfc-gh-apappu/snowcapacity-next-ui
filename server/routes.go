@@ -1,0 +1,52 @@
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"snowcapacity-server/handlers"
+)
+
+// RegisterRoutes mounts all API route groups onto the given router.
+func RegisterRoutes(r *gin.Engine, h *handlers.Handler) {
+	api := r.Group("/api")
+
+	// ─── Miscellaneous ──────────────────────────────────────
+	api.GET("/health", h.Health)
+
+	// ─── Home ───────────────────────────────────────────────
+	// home := api.Group("/home")
+	// {
+	// }
+
+	// ─── Capacity Overview ──────────────────────────────────
+	capacity := api.Group("/capacity")
+	{
+		capacity.GET("/filters", h.CapacityFilters)
+		capacity.GET("/demand", h.CapacityDemand)
+	}
+
+	// ─── Quota ──────────────────────────────────────────────
+	quota := api.Group("/quota")
+	{
+		quota.GET("/filters", h.QuotaFilters)
+		quota.GET("/current-usage", h.CurrentUsage)
+		quota.GET("/adjustments", h.QuotaAdjustments)
+	}
+
+	// ─── Requests ───────────────────────────────────────────
+	// requests := api.Group("/requests")
+	// {
+	// }
+
+	// ─── Reservations ───────────────────────────────────────
+	reservations := api.Group("/reservations")
+	{
+		reservations.GET("/filters", h.ReservationFilters)
+		reservations.GET("/detail", h.ReservationDetail)
+	}
+
+	// ─── Admin ──────────────────────────────────────────────
+	// admin := api.Group("/admin")
+	// {
+	// }
+}

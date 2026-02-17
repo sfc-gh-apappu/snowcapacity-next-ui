@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Copy, Check, History, TrendingUp, Terminal } from 'lucide-react';
 import { buildHistoricalQuery, buildForecastQuery } from '../constants';
 
@@ -145,7 +145,7 @@ function highlightSQL(sql: string) {
     <>
       {lines.map((line, i) => {
         const result = line;
-        const parts: (string | JSX.Element)[] = [];
+        const parts: (string | React.ReactElement)[] = [];
         const remaining = line;
         let keyIdx = 0;
 
@@ -182,7 +182,7 @@ function highlightSQL(sql: string) {
 }
 
 function highlightParams(text: string, keyPrefix: string) {
-  const parts: (string | JSX.Element)[] = [];
+  const parts: (string | React.ReactElement)[] = [];
   const regex = /(:[a-z_]+)/g;
   let match;
   let lastIdx = 0;

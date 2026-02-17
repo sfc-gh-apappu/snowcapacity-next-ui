@@ -1,15 +1,8 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Database, TrendingUp, ArrowUpRight } from 'lucide-react';
-import {
-  TOTAL_ADJUSTMENTS_30D, ADJUSTED_SUBSCRIPTIONS_30D,
-  TOP_ADJUSTED_QUOTAS, TOP_QUOTA_USAGE,
-} from './constants';
-
-function truncateLabel(label: string, max = 22) {
-  return label.length > max ? label.slice(0, max) + '…' : label;
-}
+import { Activity, BarChart3 } from 'lucide-react';
+import DashCard from './DashCard';
+import { TOP_ADJUSTED_QUOTAS, TOP_QUOTA_USAGE } from './constants';
 
 function getUsageColor(pct: number) {
   if (pct >= 90) return '#EF4444';
@@ -18,160 +11,126 @@ function getUsageColor(pct: number) {
   return '#10B981';
 }
 
-export default function QuotaSummary() {
+/* ─────────────────────────────────────────────────────────
+   Radial Gauge Grid — Top Quota Usage
+   ───────────────────────────────────────────────────────── */
+
+export function QuotaGauges() {
+  const items = TOP_QUOTA_USAGE.slice(0, 6);
+
   return (
-    <section className="space-y-5">
-      {/* Section header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#29B5E8]/20 to-[#29B5E8]/5 border border-[#29B5E8]/30 shadow-lg shadow-[#29B5E8]/10">
-          <Database className="w-5 h-5 text-[#29B5E8]" />
-        </div>
-        <div>
-          <h2 className="text-xl font-semibold text-white">Quota Summary</h2>
-          <p className="text-xs text-gray-500">Last 30 days</p>
+    <DashCard
+      title="Top Quota Usage"
+      subtitle="Highest utilization across all regions"
+      accentColor="#29B5E8"
+      icon={<Activity className="w-4 h-4" />}
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-6">
+        {items.map((q, i) => (
+          <GaugeItem key={i} pct={q.usagePct} label={q.quotaName} sublabel={q.region} />
+        ))}
+      </div>
+    </DashCard>
+  );
+}
+
+function GaugeItem({ pct, label, sublabel }: { pct: number; label: string; sublabel: string }) {
+  const color = getUsageColor(pct);
+  const size = 96;
+  const strokeWidth = 7;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (pct / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center group/gauge">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          {/* Track */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#1a1a1a"
+            strokeWidth={strokeWidth}
+          />
+          {/* Progress */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={`url(#gauge-grad-${pct})`}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="transition-all duration-[1.4s] ease-out"
+            style={{ filter: `drop-shadow(0 0 8px ${color}35)` }}
+          />
+          <defs>
+            <linearGradient id={`gauge-grad-${pct}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={color} stopOpacity={0.6} />
+              <stop offset="100%" stopColor={color} stopOpacity={1} />
+            </linearGradient>
+          </defs>
+        </svg>
+        {/* Center label */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-bold tabular-nums" style={{ color }}>
+            {pct}%
+          </span>
         </div>
       </div>
+      <p className="text-xs text-gray-300 mt-2 text-center truncate w-full max-w-[130px] font-medium leading-tight">
+        {label}
+      </p>
+      <p className="text-[10px] text-gray-600 font-mono mt-0.5">{sublabel}</p>
+    </div>
+  );
+}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StatCard
-          label="Total Adjustments"
-          value={TOTAL_ADJUSTMENTS_30D}
-          icon={<TrendingUp className="w-5 h-5 text-[#29B5E8]" />}
-          accentColor="#29B5E8"
-          gradientBorder="from-[#29B5E8]/40 via-[#29B5E8]/10 to-transparent"
-        />
-        <StatCard
-          label="Adjusted Subscriptions"
-          value={ADJUSTED_SUBSCRIPTIONS_30D}
-          icon={<ArrowUpRight className="w-5 h-5 text-violet-400" />}
-          accentColor="#8B5CF6"
-          gradientBorder="from-violet-500/40 via-violet-500/10 to-transparent"
-        />
-      </div>
+/* ─────────────────────────────────────────────────────────
+   Horizontal Bars — Top Adjusted Quotas
+   ───────────────────────────────────────────────────────── */
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Top Adjusted Quotas */}
-        <GlowCard accentBorder="from-[#29B5E8]/30 to-transparent" glowClass="from-[#29B5E8]/10" accentColor="#29B5E8">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Top Adjusted Quotas</h3>
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={TOP_ADJUSTED_QUOTAS} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-                <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  dataKey="quotaName"
-                  type="category"
-                  width={160}
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => truncateLabel(v, 20)}
-                />
-                <Tooltip
-                  contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 12, fontSize: 12 }}
-                  labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}
-                  itemStyle={{ color: '#9ca3af' }}
-                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                  formatter={(value: number) => [`${value} adjustments`, '']}
-                />
-                <Bar dataKey="adjustments" radius={[0, 6, 6, 0]} barSize={18}>
-                  {TOP_ADJUSTED_QUOTAS.map((_, i) => (
-                    <Cell key={i} fill={`rgba(41, 181, 232, ${1 - i * 0.09})`} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlowCard>
+export function AdjustmentsChart() {
+  const items = TOP_ADJUSTED_QUOTAS.slice(0, 6);
+  const maxVal = items[0].adjustments;
 
-        {/* Top Quota Usage */}
-        <GlowCard accentBorder="from-amber-500/30 to-transparent" glowClass="from-amber-500/10" accentColor="#F59E0B">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Top Quota Usage</h3>
-          <div className="space-y-3.5">
-            {TOP_QUOTA_USAGE.map((q, i) => (
-              <div key={i} className="group flex items-center gap-3">
-                <div className="w-[160px] min-w-[160px] truncate">
-                  <p className="text-sm text-white font-medium truncate">{q.quotaName}</p>
-                  <p className="text-[10px] text-gray-600 font-mono">{q.region}</p>
-                </div>
-                <div className="flex-1 relative bg-[#1a1a1a] rounded-full h-3.5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${q.usagePct}%`,
-                      background: `linear-gradient(90deg, ${getUsageColor(q.usagePct)}66, ${getUsageColor(q.usagePct)})`,
-                      boxShadow: `0 0 12px ${getUsageColor(q.usagePct)}30`,
-                    }}
-                  />
-                </div>
-                <span
-                  className="text-xs font-bold w-10 text-right tabular-nums"
-                  style={{ color: getUsageColor(q.usagePct) }}
-                >
-                  {q.usagePct}%
-                </span>
+  return (
+    <DashCard
+      title="Top Adjusted Quotas"
+      subtitle="Most frequently adjusted — last 30 days"
+      accentColor="#29B5E8"
+      icon={<BarChart3 className="w-4 h-4" />}
+    >
+      <div className="space-y-3.5">
+        {items.map((q, i) => {
+          const widthPct = (q.adjustments / maxVal) * 100;
+          const opacity = 0.45 + ((items.length - i) / items.length) * 0.55;
+
+          return (
+            <div key={i}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-gray-400 truncate max-w-[200px]">{q.quotaName}</span>
+                <span className="text-xs font-semibold text-white tabular-nums ml-2">{q.adjustments}</span>
               </div>
-            ))}
-          </div>
-        </GlowCard>
-      </div>
-    </section>
-  );
-}
-
-/* ─── Stat Card ─── */
-
-function StatCard({
-  label, value, icon, accentColor, gradientBorder,
-}: {
-  label: string; value: number; icon: React.ReactNode; accentColor: string; gradientBorder: string;
-}) {
-  return (
-    <div className="group relative rounded-2xl overflow-hidden">
-      {/* Gradient border */}
-      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${gradientBorder} p-px`}>
-        <div className="w-full h-full rounded-2xl bg-[#070709]" />
-      </div>
-      {/* Corner glow */}
-      <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-        style={{ backgroundColor: `${accentColor}15` }}
-      />
-      <div className="relative">
-        <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }} />
-        <div className="px-5 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl border border-[#1a1a1a]" style={{ backgroundColor: `${accentColor}10` }}>
-              {icon}
+              <div className="h-[7px] bg-[#141414] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${widthPct}%`,
+                    background: `linear-gradient(90deg, rgba(41,181,232,${opacity * 0.7}), rgba(41,181,232,${opacity}))`,
+                    boxShadow: i === 0 ? '0 0 12px rgba(41,181,232,0.15)' : undefined,
+                  }}
+                />
+              </div>
             </div>
-            <p className="text-sm text-gray-400 font-medium">{label}</p>
-          </div>
-          <p className="text-3xl font-bold text-white tabular-nums">{value.toLocaleString()}</p>
-        </div>
+          );
+        })}
       </div>
-    </div>
-  );
-}
-
-/* ─── Glow Card Wrapper ─── */
-
-function GlowCard({
-  children, accentBorder, glowClass, accentColor,
-}: {
-  children: React.ReactNode; accentBorder: string; glowClass: string; accentColor: string;
-}) {
-  return (
-    <div className="group relative rounded-2xl overflow-hidden">
-      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${accentBorder} via-transparent p-px`}>
-        <div className="w-full h-full rounded-2xl bg-[#070709]" />
-      </div>
-      <div className={`absolute -top-16 -left-16 w-40 h-40 bg-gradient-to-br ${glowClass} to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none`} />
-      <div className="relative">
-        <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }} />
-        <div className="p-5">
-          {children}
-        </div>
-      </div>
-    </div>
+    </DashCard>
   );
 }
