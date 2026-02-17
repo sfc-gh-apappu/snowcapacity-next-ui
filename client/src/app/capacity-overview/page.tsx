@@ -35,14 +35,13 @@ export default function CapacityOverview() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative">
-        <div className="absolute -top-16 -right-16 w-80 h-80 bg-[#29B5E8] opacity-[0.07] blur-3xl rounded-full pointer-events-none" />
-        <h1 className="text-5xl font-bold relative z-10">
+      <div>
+        <h1 className="text-5xl font-bold">
           <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
             Capacity Overview
           </span>
         </h1>
-        <p className="text-gray-400 mt-2 text-lg relative z-10">Analyze historical demand and forecast trends</p>
+        <p className="text-gray-400 mt-2 text-lg">Analyze historical demand and forecast trends</p>
       </div>
 
       {/* Filter Bar */}
