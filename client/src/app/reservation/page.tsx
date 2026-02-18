@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { SlidersHorizontal, ChevronDown, Check, ClipboardList, FileText } from 'lucide-react';
+import { ChevronDown, Check, ClipboardList, FileText } from 'lucide-react';
+import PageTransition from '@/components/PageTransition';
+import FilterBar from '@/components/FilterBar';
 import {
   ACCOUNTS, REGIONS_OPTIONS, AVAILABILITY_ZONES, INSTANCE_TYPES,
   INSTANCE_PLATFORMS, RESERVATION_TYPES, STATES, OWNERSHIP_OPTIONS,
@@ -44,10 +46,11 @@ export default function Reservation() {
   }, [accounts, regions, zones, instanceTypes, platforms, resTypes, states, ownership]);
 
   return (
+    <PageTransition>
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-5xl font-bold">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
           <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
             Reservations
           </span>
@@ -56,11 +59,7 @@ export default function Reservation() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-[#0a0a0a] rounded-2xl p-5 border border-[#1a1a1a]">
-        <div className="flex items-center gap-2 mb-4">
-          <SlidersHorizontal className="w-4 h-4 text-[#29B5E8]" />
-          <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Filters</span>
-        </div>
+      <FilterBar>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           <MultiSelect label="Account" options={ACCOUNTS} selected={accounts} onChange={setAccounts} />
           <MultiSelect label="Region" options={REGIONS_OPTIONS} selected={regions} onChange={setRegions} />
@@ -71,10 +70,10 @@ export default function Reservation() {
           <MultiSelect label="State" options={STATES} selected={states} onChange={setStates} />
           <MultiSelect label="Owned / Shared" options={OWNERSHIP_OPTIONS} selected={ownership} onChange={setOwnership} />
         </div>
-      </div>
+      </FilterBar>
 
       {/* Pill Tabs */}
-      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit">
+      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit max-w-full overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -101,6 +100,7 @@ export default function Reservation() {
       {activeTab === 'detail' && <ReservationDetailTab data={filteredData} />}
       {activeTab === 'request' && <ReservationRequestTab />}
     </div>
+    </PageTransition>
   );
 }
 

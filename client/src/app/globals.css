@@ -146,6 +146,15 @@ html {
   background-clip: text;
 }
 
+/* Enhanced table row hover */
+.table-row-hover {
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+.table-row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 2px 0 0 #29B5E8;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

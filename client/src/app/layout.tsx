@@ -3,7 +3,9 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
-import { useState, createContext, useContext } from "react";
+import CommandPalette from "@/components/CommandPalette";
+import SplashScreen from "@/components/SplashScreen";
+import { useState, useEffect, createContext, useContext } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +30,16 @@ export default function RootLayout({
 }>) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) setIsCollapsed(true);
+    };
+    handler(mq);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   return (
     <html lang="en">
       <head>
@@ -39,12 +51,15 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
-          <div className="flex min-h-screen bg-black">
-            <Sidebar />
-            <main className={`flex-1 p-8 bg-gradient-to-br from-black via-[#0a0a0a] to-black transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
-              {children}
-            </main>
-          </div>
+          <SplashScreen>
+            <div className="flex min-h-screen bg-black">
+              <Sidebar />
+              <main className={`flex-1 min-w-0 p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-black via-[#0a0a0a] to-black transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
+                {children}
+              </main>
+              <CommandPalette />
+            </div>
+          </SplashScreen>
         </SidebarContext.Provider>
       </body>
     </html>

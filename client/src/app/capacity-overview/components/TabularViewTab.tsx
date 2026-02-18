@@ -73,7 +73,7 @@ function DemandTable({
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
               {data.map((row, i) => (
-                <tr key={i} className="hover:bg-white/[0.03] transition-colors">
+                <tr key={i} className="table-row-hover">
                   <td className="px-5 py-3.5 text-sm text-white font-medium whitespace-nowrap">{row.date}</td>
                   <td className="px-5 py-3.5 text-sm text-gray-300">{row.product}</td>
                   <td className="px-5 py-3.5 text-sm text-gray-400">{row.region}</td>

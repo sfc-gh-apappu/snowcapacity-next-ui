@@ -79,7 +79,7 @@ function ViewConfigs() {
           Show Enabled Only
         </button>
 
-        <div className="relative w-64 ml-auto">
+        <div className="relative w-full sm:w-64 sm:ml-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
@@ -107,7 +107,7 @@ function ViewConfigs() {
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
               {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={c.id} className="table-row-hover">
                   <td className="px-5 py-3.5">
                     <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] text-gray-300 border border-[#2a2a2a] font-medium">{c.cloud}</span>
                   </td>

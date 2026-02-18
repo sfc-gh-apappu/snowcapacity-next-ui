@@ -8,6 +8,7 @@ interface WizardNavigationProps {
   canProceedStep1: boolean;
   canProceedStep2: boolean;
   totalSteps?: number;
+  step3Skippable?: boolean;
 }
 
 export default function WizardNavigation({
@@ -16,6 +17,7 @@ export default function WizardNavigation({
   canProceedStep1,
   canProceedStep2,
   totalSteps = 4,
+  step3Skippable = false,
 }: WizardNavigationProps) {
   const isDisabled =
     (step === 1 && !canProceedStep1) ||
@@ -37,7 +39,7 @@ export default function WizardNavigation({
       </button>
 
       <div className="flex items-center gap-3">
-        {step === 3 && (
+        {step === 3 && step3Skippable && (
           <button
             type="button"
             onClick={() => setStep(4)}
@@ -58,7 +60,7 @@ export default function WizardNavigation({
                 : 'bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white hover:shadow-lg hover:shadow-[#29B5E8]/50'
             }`}
           >
-            {step === 3 ? 'Continue with Plans' : 'Continue'}
+            Continue
             <ArrowRight className="w-4 h-4" />
           </button>
         ) : (

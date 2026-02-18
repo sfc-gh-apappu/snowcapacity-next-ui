@@ -85,7 +85,7 @@ export default function SupportCasesTab() {
                 <tr
                   key={item.id}
                   onClick={() => setSelected(item)}
-                  className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                  className="table-row-hover cursor-pointer"
                 >
                   <td className="px-5 py-4 text-sm text-gray-400">{item.region}</td>
                   <td className="px-5 py-4 text-sm font-medium text-[#29B5E8]">{item.supportId}</td>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { PieChart as PieIcon, Clock } from 'lucide-react';
 import DashCard from './DashCard';
@@ -16,6 +17,8 @@ import {
 
 export function RequestDonut() {
   const completionPct = Math.round((COMPLETED_REQUESTS / TOTAL_REQUESTS) * 100);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <DashCard
@@ -27,7 +30,7 @@ export function RequestDonut() {
       <div className="flex flex-col items-center">
         {/* Donut */}
         <div className="relative w-[180px] h-[180px]">
-          <ResponsiveContainer width="100%" height="100%">
+          {mounted && <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={REQUEST_BREAKDOWN}
@@ -56,7 +59,7 @@ export function RequestDonut() {
                 formatter={(value) => [`${value} requests`, '']}
               />
             </PieChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer>}
           {/* Center label */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-3xl font-bold text-white tabular-nums">{completionPct}%</span>

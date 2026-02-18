@@ -1,39 +1,62 @@
-import { Server, ShieldCheck, HardDrive, Cpu } from 'lucide-react';
+import { Server, ShieldCheck, Gauge, Cpu } from 'lucide-react';
 
 /* ─── Wizard Steps ─── */
+
 export const WIZARD_STEPS = [
   { id: 1, label: 'What & Who', description: 'Type, team & provider' },
   { id: 2, label: 'Where', description: 'Region & infrastructure' },
-  { id: 3, label: 'Capacity Plans', description: 'Optional add-ons' },
+  { id: 3, label: 'Details', description: 'Request-specific details' },
   { id: 4, label: 'Review & Submit', description: 'Confirm & send' },
 ];
 
-/* ─── Request Types ─── */
+const STEP3_BY_TYPE: Record<string, { label: string; description: string }> = {
+  ONDEMAND_CREATE: { label: 'Capacity Plans', description: 'Configure capacity plans' },
+  RESERVATION_CREATE: { label: 'Instance & Commitment', description: 'Instance config & usage' },
+  QUOTA_CREATE: { label: 'Quota Details', description: 'Quota adjustment details' },
+  CAPACITY_BLOCK_CREATE: { label: 'Block Config', description: 'Capacity block setup' },
+};
+
+export function getWizardSteps(requestType: string) {
+  const step3 = STEP3_BY_TYPE[requestType] || WIZARD_STEPS[2];
+  return [
+    WIZARD_STEPS[0],
+    WIZARD_STEPS[1],
+    { id: 3, label: step3.label, description: step3.description },
+    WIZARD_STEPS[3],
+  ];
+}
+
+/* ─── Request Types (matching backend WorkerJobType) ─── */
+
 export const REQUEST_TYPES = [
-  { id: 'capacity-ondemand', label: 'Capacity (On-Demand)', description: 'Request on-demand capacity allocation', icon: Server, color: 'from-[#29B5E8] to-[#1E88B5]', border: 'border-[#29B5E8]', glow: 'shadow-[#29B5E8]/30' },
-  { id: 'capacity-reserved', label: 'Capacity (Reserved)', description: 'Reserve capacity for long-term use', icon: ShieldCheck, color: 'from-violet-500 to-purple-600', border: 'border-violet-500', glow: 'shadow-violet-500/30' },
-  { id: 'storage', label: 'Storage', description: 'Block or object storage for data', icon: HardDrive, color: 'from-emerald-500 to-teal-600', border: 'border-emerald-500', glow: 'shadow-emerald-500/30' },
-  { id: 'compute', label: 'Compute', description: 'Processing power & virtual warehouses', icon: Cpu, color: 'from-orange-500 to-amber-600', border: 'border-orange-500', glow: 'shadow-orange-500/30' },
+  { id: 'ONDEMAND_CREATE', label: 'On-Demand Capacity', description: 'Request on-demand compute capacity', icon: Server, color: 'from-[#29B5E8] to-[#1E88B5]', border: 'border-[#29B5E8]', glow: 'shadow-[#29B5E8]/30' },
+  { id: 'RESERVATION_CREATE', label: 'Capacity Reservation', description: 'Reserve dedicated capacity long-term', icon: ShieldCheck, color: 'from-violet-500 to-purple-600', border: 'border-violet-500', glow: 'shadow-violet-500/30' },
+  { id: 'QUOTA_CREATE', label: 'Quota Adjustment', description: 'Request a cloud quota increase', icon: Gauge, color: 'from-emerald-500 to-teal-600', border: 'border-emerald-500', glow: 'shadow-emerald-500/30' },
+  { id: 'CAPACITY_BLOCK_CREATE', label: 'Capacity Block', description: 'Purchase reserved capacity blocks', icon: Cpu, color: 'from-orange-500 to-amber-600', border: 'border-orange-500', glow: 'shadow-orange-500/30' },
 ];
 
 /* ─── Cloud Providers ─── */
+
 export const CLOUD_PROVIDERS = [
   { id: 'azure', label: 'Azure', logo: '/azure_logo.png', color: 'from-blue-500 to-blue-700', border: 'border-blue-500', glow: 'shadow-blue-500/30' },
   { id: 'aws', label: 'AWS', logo: '/aws_logo.png', color: 'from-orange-500 to-orange-700', border: 'border-orange-500', glow: 'shadow-orange-500/30' },
   { id: 'gcp', label: 'GCP', logo: '/gcp_logo.png', color: 'from-red-500 to-yellow-500', border: 'border-red-500', glow: 'shadow-red-500/30' },
 ];
 
-/* ─── Teams ─── */
+/* ─── Teams (on-demand → requestor_team) ─── */
+
 export const TEAMS = ['Engineering', 'Data Science', 'Marketing', 'Product', 'Operations', 'Finance', 'Infrastructure'];
 
 /* ─── Regions by Provider ─── */
+
 export const REGIONS_BY_PROVIDER: Record<string, string[]> = {
   azure: ['East US', 'East US 2', 'West US', 'West US 2', 'Central US', 'West Europe', 'North Europe', 'Southeast Asia', 'Japan East', 'Australia East'],
   aws: ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1', 'ap-northeast-1'],
   gcp: ['us-central1', 'us-east1', 'us-west1', 'europe-west1', 'europe-west3', 'asia-east1', 'asia-northeast1', 'australia-southeast1'],
 };
 
-/* ─── Sample Subscriptions ─── */
+/* ─── Sample Subscriptions / Accounts (placeholder) ─── */
+
 export const SAMPLE_SUBSCRIPTIONS: Record<string, { id: string; name: string }[]> = {
   azure: [
     { id: 'sub-001-abcd', name: 'Prod - Data Platform' },
@@ -53,11 +76,13 @@ export const SAMPLE_SUBSCRIPTIONS: Record<string, { id: string; name: string }[]
   ],
 };
 
-/* ─── Environments & Deployments ─── */
-export const ENVIRONMENTS = ['Production', 'Staging', 'Development', 'Sandbox'];
+/* ─── Environments & Deployments (on-demand) ─── */
+
+export const ENVIRONMENTS = ['Production', 'Pre-production', 'Development', 'Sandbox'];
 export const DEPLOYMENTS = ['Primary', 'Secondary', 'DR (Disaster Recovery)', 'Edge'];
 
-/* ─── Capacity Plan Data ─── */
+/* ─── Instance Types & Availability Zones ─── */
+
 export const INSTANCE_TYPES = [
   'p4d.24xlarge', 'p3.16xlarge', 'p3.8xlarge', 'p3.2xlarge',
   'g5.48xlarge', 'g5.24xlarge', 'g5.12xlarge',
@@ -65,8 +90,45 @@ export const INSTANCE_TYPES = [
   'm5.24xlarge', 'm5.12xlarge', 'm5.8xlarge',
 ];
 
-export const AVAILABILITY_ZONES = ['us-east-1a', 'us-east-1b', 'us-east-1c', 'us-west-2a', 'us-west-2b', 'us-west-2c', 'eu-west-1a', 'eu-west-1b', 'eu-central-1a', 'eu-central-1b'];
+export const AVAILABILITY_ZONES = [
+  'us-east-1a', 'us-east-1b', 'us-east-1c',
+  'us-west-2a', 'us-west-2b', 'us-west-2c',
+  'eu-west-1a', 'eu-west-1b',
+  'eu-central-1a', 'eu-central-1b',
+];
 
+/* ─── Reservation-specific constants ─── */
+
+export const INSTANCE_PLATFORMS = [
+  'Linux/UNIX',
+  'Red Hat Enterprise Linux',
+  'SUSE Linux',
+  'Windows',
+  'Windows with SQL Server Standard',
+  'Windows with SQL Server Web',
+  'Windows with SQL Server Enterprise',
+];
+
+export const INSTANCE_MATCH_CRITERIA = [
+  { id: 'open', label: 'Open', description: 'Instances can run in any available capacity' },
+  { id: 'targeted', label: 'Targeted', description: 'Instances launch into reserved capacity' },
+];
+
+export const DELIVERY_PREFERENCES = [
+  { id: 'incremental', label: 'Incremental', description: 'Deliver capacity as it becomes available' },
+  { id: 'fixed', label: 'Fixed', description: 'All capacity delivered at once' },
+];
+
+/* ─── Quota-specific constants ─── */
+
+export const QUOTA_PROVIDERS = ['Azure'] as const;
+
+export const RESOURCE_TYPES = [
+  'standardDpldsv5Family', 'standardDpldsv6Family', 'standardEdsv5Family',
+  'standardEASv5Family', 'standardFSv2Family', 'standardFFamily',
+  'Standard NCASv3_T4 Family vCPUs', 'StandardNCADSA100v4Family',
+  'StandardNCCads2023Family', 'StandardNVADSA10v5Family',
+];
 
 /* ─── Types ─── */
 
@@ -76,10 +138,44 @@ export type RequestForm = {
   cloudProvider: string;
   region: string;
   subscriptionId: string;
+  accountName: string;
   environment: string;
   deployment: string;
+  availabilityZone: string;
   financeApproval: boolean;
   notes: string;
+};
+
+export type ReservationPayload = {
+  instanceType: string;
+  instanceCount: string;
+  instancePlatform: string;
+  instanceMatchCriteria: string;
+  immediateUse: boolean;
+  unlimitedUse: boolean;
+  deliveryPreference: string;
+  commitmentDuration: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type QuotaPayload = {
+  resourceType: string;
+  requestedLimit: string;
+  justification: string;
+  quotaName: string;
+  tenantId: string;
+  createSupportCase: boolean;
+};
+
+export type CapacityBlockPayload = {
+  capacityBlockOfferingId: string;
+  instanceType: string;
+  instanceCount: string;
+  instancePlatform: string;
+  dryRun: boolean;
+  approvedBy: string;
+  estimatedCost: string;
 };
 
 export type CapacityPlanEntry = {
@@ -125,6 +221,27 @@ export const createBackupPlan = (): BackupPlan => ({
   id: crypto.randomUUID(), instanceType: '', sameAsPrimary: true, date: '', availabilityZone: '', minCount: '', maxCount: '', isCollapsed: false,
 });
 
+export const createReservationPayload = (): ReservationPayload => ({
+  instanceType: '', instanceCount: '', instancePlatform: '', instanceMatchCriteria: '',
+  immediateUse: false, unlimitedUse: false, deliveryPreference: '', commitmentDuration: '',
+  startDate: '', endDate: '',
+});
+
+export const createQuotaPayload = (): QuotaPayload => ({
+  resourceType: '', requestedLimit: '', justification: '', quotaName: '', tenantId: '',
+  createSupportCase: false,
+});
+
+export const createCapacityBlockPayload = (): CapacityBlockPayload => ({
+  capacityBlockOfferingId: '', instanceType: '', instanceCount: '', instancePlatform: '',
+  dryRun: false, approvedBy: '', estimatedCost: '',
+});
+
+export const INITIAL_FORM: RequestForm = {
+  requestType: '', team: '', cloudProvider: '', region: '', subscriptionId: '', accountName: '',
+  environment: '', deployment: '', availabilityZone: '', financeApproval: false, notes: '',
+};
+
 /* ─── Status helpers (shared by My Requests & View Requests) ─── */
 
 export const STATUS_BADGE_STYLES: Record<string, string> = {
@@ -134,6 +251,7 @@ export const STATUS_BADGE_STYLES: Record<string, string> = {
 };
 
 /* ─── Utility: provider account label ─── */
+
 export function getProviderAccountLabel(cloudProvider: string): string {
   if (cloudProvider === 'azure') return 'Azure Subscription';
   if (cloudProvider === 'aws') return 'AWS Account';

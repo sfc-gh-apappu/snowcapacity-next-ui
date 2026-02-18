@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Search, Layers, Server, ServerOff, DollarSign } from 'lucide-react';
+import CountUp from '@/components/CountUp';
+import { useSortableData, SortHeader } from '@/components/SortableTable';
 import type { ReservationDetail } from '../constants';
 import { STATE_STYLES } from '../constants';
 import ReservationDetailModal from './ReservationDetailModal';
@@ -28,11 +30,13 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
   const [selected, setSelected] = useState<ReservationDetail | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
-  const filtered = data.filter((item) =>
+  const searched = data.filter((item) =>
     item.reservationId.toLowerCase().includes(search.toLowerCase()) ||
     item.accountName.toLowerCase().includes(search.toLowerCase()) ||
     item.instanceType.toLowerCase().includes(search.toLowerCase())
   );
+
+  const { sorted: filtered, sort, toggle } = useSortableData(searched);
 
   const totalReservations = filtered.length;
   const totalInstances = filtered.reduce((sum, r) => sum + r.totalInstanceCount, 0);
@@ -51,44 +55,44 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
         <SummaryCard
           icon={<Layers className="w-5 h-5 text-[#29B5E8]" />}
           label="Total Reservations"
-          value={totalReservations.toString()}
+          value={<CountUp end={totalReservations} />}
           accent="border-[#29B5E8]/30 hover:border-[#29B5E8]/50"
           bgGlow="from-[#29B5E8]/10"
         />
         <SummaryCard
           icon={<Server className="w-5 h-5 text-emerald-400" />}
           label="Total Instances"
-          value={totalInstances.toLocaleString()}
+          value={<CountUp end={totalInstances} />}
           accent="border-emerald-500/30 hover:border-emerald-500/50"
           bgGlow="from-emerald-500/10"
         />
         <SummaryCard
           icon={<Server className="w-5 h-5 text-violet-400" />}
           label="Used Instances"
-          value={totalUsedInstances.toLocaleString()}
+          value={<CountUp end={totalUsedInstances} />}
           accent="border-violet-500/30 hover:border-violet-500/50"
           bgGlow="from-violet-500/10"
         />
         <SummaryCard
           icon={<ServerOff className="w-5 h-5 text-yellow-400" />}
           label="Unused Instances"
-          value={totalUnusedInstances.toLocaleString()}
+          value={<CountUp end={totalUnusedInstances} />}
           accent="border-yellow-500/30 hover:border-yellow-500/50"
           bgGlow="from-yellow-500/10"
         />
         <SummaryCard
           icon={<DollarSign className="w-5 h-5 text-red-400" />}
           label="Unused Spend"
-          value={`$${Math.round(totalUnusedSpend).toLocaleString()}/mo`}
+          value={<><CountUp end={Math.round(totalUnusedSpend)} prefix="$" />/mo</>}
           accent="border-red-500/30 hover:border-red-500/50"
           bgGlow="from-red-500/10"
         />
       </div>
 
       {/* Search */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <p className="text-sm text-gray-500">{filtered.length} reservation{filtered.length !== 1 ? 's' : ''}</p>
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
@@ -106,16 +110,16 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
           <table className="w-full">
             <thead className="bg-black/50 border-b border-[#1a1a1a]">
               <tr>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">AWS Reservation ID</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Account Name</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Instance Type</th>
-                <th className="text-right px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Total</th>
-                <th className="text-right px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Used</th>
-                <th className="text-right px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Available</th>
+                <SortHeader label="AWS Reservation ID" sortKey="reservationId" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Account Name" sortKey="accountName" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Type" sortKey="reservationType" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Instance Type" sortKey="instanceType" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Total" sortKey="totalInstanceCount" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Used" sortKey="usedInstanceCount" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Available" sortKey="availableInstanceCount" currentSort={sort} onSort={toggle} align="right" />
                 <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider min-w-[150px]">Usage</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Created</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">State</th>
+                <SortHeader label="Created" sortKey="createdDate" currentSort={sort} onSort={toggle} />
+                <SortHeader label="State" sortKey="state" currentSort={sort} onSort={toggle} />
                 <th className="px-3 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider w-12"></th>
               </tr>
             </thead>
@@ -126,7 +130,7 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
                   <tr
                     key={item.id}
                     onClick={() => setSelected(item)}
-                    className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                    className="table-row-hover cursor-pointer"
                   >
                     <td className="px-5 py-4">
                       <span className="text-xs font-mono text-[#29B5E8]">{item.reservationId}</span>
@@ -202,7 +206,7 @@ function SummaryCard({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: React.ReactNode;
   accent: string;
   bgGlow: string;
 }) {

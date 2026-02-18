@@ -16,6 +16,13 @@ export type TopQuotaUsage = {
 export const TOTAL_ADJUSTMENTS_30D = 184;
 export const ADJUSTED_SUBSCRIPTIONS_30D = 37;
 
+export const KPI_SPARKLINES = {
+  adjustments: [3, 5, 4, 7, 8, 6, 9, 12, 10, 8, 14, 11, 9],
+  subscriptions: [2, 3, 2, 4, 3, 5, 4, 6, 5, 4, 6, 5, 7],
+  unusedCost: [22, 20, 19, 21, 18, 17, 19, 16, 18, 15, 17, 16, 18],
+  requests: [8, 10, 12, 9, 14, 11, 16, 13, 15, 12, 18, 14, 16],
+};
+
 export const TOP_ADJUSTED_QUOTAS: TopAdjustedQuota[] = [
   { quotaName: 'standardEDSv5Family', adjustments: 42 },
   { quotaName: 'standardFSv2Family', adjustments: 31 },

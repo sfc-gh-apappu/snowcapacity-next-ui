@@ -1,17 +1,20 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import { WIZARD_STEPS } from '../constants';
+import { WIZARD_STEPS, getWizardSteps } from '../constants';
 
 interface ProgressBarProps {
   currentStep: number;
+  requestType?: string;
 }
 
-export default function ProgressBar({ currentStep }: ProgressBarProps) {
+export default function ProgressBar({ currentStep, requestType }: ProgressBarProps) {
+  const steps = requestType ? getWizardSteps(requestType) : WIZARD_STEPS;
+
   return (
     <div className="relative bg-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a]">
       <div className="flex items-center justify-between">
-        {WIZARD_STEPS.map((s, index) => (
+        {steps.map((s, index) => (
           <div key={s.id} className="flex items-center flex-1">
             <div className="flex items-center gap-3">
               <div className={`
@@ -30,7 +33,7 @@ export default function ProgressBar({ currentStep }: ProgressBarProps) {
                 <p className="text-xs text-gray-600">{s.description}</p>
               </div>
             </div>
-            {index < WIZARD_STEPS.length - 1 && (
+            {index < steps.length - 1 && (
               <div className="flex-1 mx-4">
                 <div className="h-[2px] bg-[#1a1a1a] rounded-full overflow-hidden">
                   <div

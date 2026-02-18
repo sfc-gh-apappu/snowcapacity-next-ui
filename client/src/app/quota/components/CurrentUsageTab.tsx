@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { useState } from 'react';
 import type { QuotaUsageItem } from '../constants';
 import QuotaDetailModal from './QuotaDetailModal';
+import { useSortableData, SortHeader } from '@/components/SortableTable';
 
 function getUsagePct(item: QuotaUsageItem) {
   return Math.round((item.usage / item.limit) * 100);
@@ -34,12 +35,14 @@ export default function CurrentUsageTab({ data }: { data: QuotaUsageItem[] }) {
     item.subscriptionName.toLowerCase().includes(search.toLowerCase())
   );
 
+  const { sorted, sort, toggle } = useSortableData(filtered, { key: 'usagePercent', direction: 'desc' });
+
   return (
     <div className="space-y-4">
       {/* Search */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <p className="text-sm text-gray-500">{filtered.length} quota{filtered.length !== 1 ? 's' : ''} found</p>
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
@@ -57,24 +60,24 @@ export default function CurrentUsageTab({ data }: { data: QuotaUsageItem[] }) {
           <table className="w-full">
             <thead className="bg-black/50 border-b border-[#1a1a1a]">
               <tr>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Instance Type</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Quota Name</th>
-                <th className="text-right px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Usage</th>
-                <th className="text-right px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Limit</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider min-w-[180px]">Usage %</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Last Updated</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Region</th>
-                <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Subscription</th>
+                <SortHeader label="Instance Type" sortKey="instanceType" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Quota Name" sortKey="quotaName" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Usage" sortKey="usage" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Limit" sortKey="limit" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Usage %" sortKey="usagePercent" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Last Updated" sortKey="lastUpdated" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Region" sortKey="region" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Subscription" sortKey="subscriptionName" currentSort={sort} onSort={toggle} />
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
-              {filtered.map((item) => {
+              {sorted.map((item) => {
                 const pct = getUsagePct(item);
                 return (
                   <tr
                     key={item.id}
                     onClick={() => setSelected(item)}
-                    className="hover:bg-white/[0.03] transition-colors cursor-pointer"
+                    className="table-row-hover cursor-pointer"
                   >
                     <td className="px-5 py-4">
                       <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-[#1a1a1a] text-gray-300 border border-[#2a2a2a]">

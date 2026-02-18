@@ -56,7 +56,7 @@ function ViewConstrained() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{filtered.length} constrained quota{filtered.length !== 1 ? 's' : ''}</p>
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
@@ -82,7 +82,7 @@ function ViewConstrained() {
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
               {filtered.map((q) => (
-                <tr key={q.id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={q.id} className="table-row-hover">
                   <td className="px-5 py-3.5 text-sm text-white font-medium">{q.quotaName}</td>
                   <td className="px-5 py-3.5">
                     <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-[#1a1a1a] text-gray-300 border border-[#2a2a2a]">{q.region}</span>

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3, Table2, Code2, ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { BarChart3, Table2, Code2, ChevronDown } from 'lucide-react';
+import FilterBar from '@/components/FilterBar';
+import PageTransition from '@/components/PageTransition';
 import {
   CLOUD_PROVIDERS, VIEW_TYPES, PRODUCTS, REGIONS, DEPLOYMENTS,
   WAREHOUSE_TYPES, DEMAND_METRICS,
@@ -33,10 +35,11 @@ export default function CapacityOverview() {
   const filters = { cloud, viewType, product, region, deployment, warehouseType, fromDate, toDate, metric };
 
   return (
+    <PageTransition>
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-5xl font-bold">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
           <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
             Capacity Overview
           </span>
@@ -45,44 +48,31 @@ export default function CapacityOverview() {
       </div>
 
       {/* Filter Bar */}
-      <div className="relative rounded-2xl overflow-hidden">
-        {/* Gradient border effect */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#29B5E8]/20 via-transparent to-violet-500/10 p-px">
-          <div className="w-full h-full rounded-2xl bg-[#0a0a0a]" />
+      <FilterBar>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-3">
+          <FilterSelect label="Cloud Provider" value={cloud} onChange={setCloud} options={CLOUD_PROVIDERS.map((c) => ({ value: c, label: c }))} />
+          <FilterSelect label="View Type" value={viewType} onChange={setViewType} options={VIEW_TYPES.map((v) => ({ value: v, label: v }))} />
+          <FilterSelect label="Product" value={product} onChange={setProduct} options={PRODUCTS.map((p) => ({ value: p, label: p }))} />
+          <FilterSelect label="Region" value={region} onChange={setRegion} options={REGIONS.map((r) => ({ value: r, label: r }))} />
         </div>
-        <div className="relative p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-1.5 rounded-lg bg-[#29B5E8]/10">
-              <SlidersHorizontal className="w-4 h-4 text-[#29B5E8]" />
-            </div>
-            <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Filters</span>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-3">
-            <FilterSelect label="Cloud Provider" value={cloud} onChange={setCloud} options={CLOUD_PROVIDERS.map((c) => ({ value: c, label: c }))} />
-            <FilterSelect label="View Type" value={viewType} onChange={setViewType} options={VIEW_TYPES.map((v) => ({ value: v, label: v }))} />
-            <FilterSelect label="Product" value={product} onChange={setProduct} options={PRODUCTS.map((p) => ({ value: p, label: p }))} />
-            <FilterSelect label="Region" value={region} onChange={setRegion} options={REGIONS.map((r) => ({ value: r, label: r }))} />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <FilterSelect label="Deployment" value={deployment} onChange={setDeployment} options={DEPLOYMENTS.map((d) => ({ value: d, label: d }))} />
+          <FilterSelect label="Warehouse Type" value={warehouseType} onChange={setWarehouseType} options={WAREHOUSE_TYPES.map((w) => ({ value: w, label: w }))} />
+          <div>
+            <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">From Date</label>
+            <DatePicker value={fromDate} onChange={setFromDate} placeholder="Start date" className="bg-[#111] border-[#2a2a2a] hover:bg-[#111] hover:border-[#3a3a3a]" />
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <FilterSelect label="Deployment" value={deployment} onChange={setDeployment} options={DEPLOYMENTS.map((d) => ({ value: d, label: d }))} />
-            <FilterSelect label="Warehouse Type" value={warehouseType} onChange={setWarehouseType} options={WAREHOUSE_TYPES.map((w) => ({ value: w, label: w }))} />
-            <div>
-              <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">From Date</label>
-              <DatePicker value={fromDate} onChange={setFromDate} placeholder="Start date" className="bg-[#111] border-[#2a2a2a] hover:bg-[#111] hover:border-[#3a3a3a]" />
-            </div>
-            <div>
-              <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">To Date</label>
-              <DatePicker value={toDate} onChange={setToDate} placeholder="End date" className="bg-[#111] border-[#2a2a2a] hover:bg-[#111] hover:border-[#3a3a3a]" />
-            </div>
-            <FilterSelect label="Demand Metric" value={metric} onChange={setMetric} options={DEMAND_METRICS.map((m) => ({ value: m, label: m }))} />
+          <div>
+            <label className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 font-medium">To Date</label>
+            <DatePicker value={toDate} onChange={setToDate} placeholder="End date" className="bg-[#111] border-[#2a2a2a] hover:bg-[#111] hover:border-[#3a3a3a]" />
           </div>
+          <FilterSelect label="Demand Metric" value={metric} onChange={setMetric} options={DEMAND_METRICS.map((m) => ({ value: m, label: m }))} />
         </div>
-      </div>
+      </FilterBar>
 
       {/* Pill Tabs */}
-      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit">
+      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit max-w-full overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -110,6 +100,7 @@ export default function CapacityOverview() {
       {activeTab === 'tabular' && <TabularViewTab />}
       {activeTab === 'query' && <QueryViewTab filters={filters} />}
     </div>
+    </PageTransition>
   );
 }
 

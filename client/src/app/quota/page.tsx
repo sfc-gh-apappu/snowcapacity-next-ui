@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Database, BarChart3, ArrowUpDown, Headphones, ChevronDown, X, AlertTriangle, AlertCircle, Gauge } from 'lucide-react';
+import { BarChart3, ArrowUpDown, Headphones, ChevronDown, X, AlertTriangle, AlertCircle, Gauge } from 'lucide-react';
+import PageTransition from '@/components/PageTransition';
+import CountUp from '@/components/CountUp';
+import FilterBar from '@/components/FilterBar';
 import {
   CLOUD_PROVIDERS, REGIONS, TENANT_IDS, SUBSCRIPTIONS, INSTANCE_TYPES,
   QUOTA_USAGE_DATA, type QuotaUsageItem,
@@ -83,10 +86,11 @@ export default function Quota() {
   };
 
   return (
+    <PageTransition>
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-5xl font-bold">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
           <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
             Quota Management
           </span>
@@ -95,11 +99,7 @@ export default function Quota() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-[#0a0a0a] rounded-2xl p-5 border border-[#1a1a1a]">
-        <div className="flex items-center gap-2 mb-4">
-          <Database className="w-4 h-4 text-[#29B5E8]" />
-          <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Filters</span>
-        </div>
+      <FilterBar>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <FilterSelect label="Cloud Provider" value={cloud} onChange={handleCloudChange} options={CLOUD_PROVIDERS.map((c) => ({ value: c, label: c }))} />
           <FilterSelect label="Region" value={region} onChange={setRegion} options={availableRegions.map((r) => ({ value: r, label: r }))} />
@@ -108,7 +108,6 @@ export default function Quota() {
           <FilterSelect label="Instance Type" value={instanceType} onChange={setInstanceType} options={INSTANCE_TYPES.map((t) => ({ value: t, label: t }))} />
         </div>
 
-        {/* Active Filter Chips */}
         {activeFilters.length > 0 && (
           <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#1a1a1a]">
             <span className="text-xs text-gray-500 uppercase tracking-wider mr-1">Active:</span>
@@ -130,7 +129,7 @@ export default function Quota() {
             </button>
           </div>
         )}
-      </div>
+      </FilterBar>
 
       {/* Summary Strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -160,7 +159,7 @@ export default function Quota() {
       </div>
 
       {/* Pill Tabs */}
-      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit">
+      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit max-w-full overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -188,6 +187,7 @@ export default function Quota() {
       {activeTab === 'adjustments' && <QuotaAdjustmentsTab />}
       {activeTab === 'support' && <SupportCasesTab />}
     </div>
+    </PageTransition>
   );
 }
 
@@ -245,7 +245,7 @@ function SummaryCard({
             {subtitle && <p className="text-[11px] text-gray-600">{subtitle}</p>}
           </div>
         </div>
-        <p className="text-3xl font-bold text-white">{value}</p>
+        <p className="text-3xl font-bold text-white"><CountUp end={value} /></p>
       </div>
     </div>
   );

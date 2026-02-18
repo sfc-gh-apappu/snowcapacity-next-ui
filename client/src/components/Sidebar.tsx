@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, BarChart3, FileText, Database, Calendar, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { useSidebar } from '@/app/layout';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
 const navItems = [
   { name: 'Home', href: '/', icon: Home },
@@ -81,21 +82,29 @@ export default function Sidebar() {
               <Link
                 href={item.href}
                 className={`
-                  group flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-300 relative overflow-hidden
+                  group flex items-center gap-3 px-4 py-2 rounded-xl relative overflow-hidden
                   ${isActive 
-                    ? 'bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white shadow-lg shadow-[#29B5E8]/30' 
-                    : 'text-gray-400 hover:text-white hover:bg-[#0a0a0a]'
+                    ? 'text-white' 
+                    : 'text-gray-400 hover:text-white hover:bg-[#0a0a0a] transition-all duration-300'
                   }
                   ${isCollapsed ? 'justify-center' : ''}
                 `}
               >
-                {isActive && !isCollapsed && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#29B5E8]/20 to-transparent blur-xl"></div>
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-active"
+                    className="absolute inset-0 bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] rounded-xl shadow-lg shadow-[#29B5E8]/30"
+                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                  />
                 )}
                 <Icon className={`w-4 h-4 relative z-10 transition-transform duration-300 ${isActive ? '' : 'group-hover:scale-110'}`} />
                 {!isCollapsed && <span className="text-sm font-medium relative z-10">{item.name}</span>}
                 {isActive && !isCollapsed && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full"></div>
+                  <motion.div
+                    layoutId="sidebar-indicator"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full"
+                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                  />
                 )}
               </Link>
               

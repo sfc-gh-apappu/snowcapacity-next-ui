@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, ListFilter, Eye } from 'lucide-react';
+import PageTransition from '@/components/PageTransition';
 import CreateRequestTab from './components/CreateRequestTab';
 import MyRequestsTab from './components/MyRequestsTab';
 import ViewRequestsTab from './components/ViewRequestsTab';
@@ -17,10 +18,11 @@ export default function Request() {
   const [filter, setFilter] = useState('all');
 
   return (
+    <PageTransition>
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-5xl font-bold">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
           <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
             Requests
           </span>
@@ -29,7 +31,7 @@ export default function Request() {
       </div>
 
       {/* Pill Tabs */}
-      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit">
+      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit max-w-full overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -57,5 +59,6 @@ export default function Request() {
       {activeTab === 'my-requests' && <MyRequestsTab filter={filter} setFilter={setFilter} />}
       {activeTab === 'view' && <ViewRequestsTab />}
     </div>
+    </PageTransition>
   );
 }

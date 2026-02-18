@@ -6,6 +6,7 @@ import {
   ADMIN_REQUESTS, REQUEST_STATUSES, REQUEST_STATUS_STYLES, UPDATE_STATUS_OPTIONS,
   type AdminRequest,
 } from '../constants';
+import { useSortableData, SortHeader } from '@/components/SortableTable';
 
 export default function RequestAdmin() {
   const [statusFilter, setStatusFilter] = useState('All');
@@ -17,7 +18,7 @@ export default function RequestAdmin() {
   const [statusMessage, setStatusMessage] = useState('');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  const filtered = useMemo(() => {
+  const preFiltered = useMemo(() => {
     return ADMIN_REQUESTS.filter((r) => {
       if (statusFilter !== 'All' && r.status !== statusFilter) return false;
       if (search) {
@@ -32,6 +33,8 @@ export default function RequestAdmin() {
       return true;
     });
   }, [statusFilter, search]);
+
+  const { sorted: filtered, sort, toggle } = useSortableData(preFiltered);
 
   function handleUpdate() {
     if (!updateId.trim() || !newStatus) {
@@ -69,7 +72,7 @@ export default function RequestAdmin() {
           </div>
 
           {/* Search */}
-          <div className="relative w-64 ml-auto">
+          <div className="relative w-full sm:w-64 sm:ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type="text"
@@ -87,18 +90,18 @@ export default function RequestAdmin() {
             <table className="w-full">
               <thead className="bg-black/50 border-b border-[#1a1a1a]">
                 <tr>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Request ID</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Requestor</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Team</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Cloud</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Region</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                  <SortHeader label="Request ID" sortKey="requestId" currentSort={sort} onSort={toggle} />
+                  <SortHeader label="Type" sortKey="type" currentSort={sort} onSort={toggle} />
+                  <SortHeader label="Requestor" sortKey="requestor" currentSort={sort} onSort={toggle} />
+                  <SortHeader label="Team" sortKey="team" currentSort={sort} onSort={toggle} />
+                  <SortHeader label="Cloud" sortKey="cloud" currentSort={sort} onSort={toggle} />
+                  <SortHeader label="Region" sortKey="region" currentSort={sort} onSort={toggle} />
+                  <SortHeader label="Status" sortKey="status" currentSort={sort} onSort={toggle} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1a1a1a]">
                 {filtered.map((r) => (
-                  <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={r.id} className="table-row-hover">
                     <td className="px-5 py-3.5 text-xs font-mono text-[#29B5E8]">{r.requestId}</td>
                     <td className="px-5 py-3.5 text-sm text-white">{r.type}</td>
                     <td className="px-5 py-3.5 text-sm text-gray-400">{r.requestor}</td>

@@ -58,7 +58,7 @@ export default function ViewRequestsTab() {
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
               {allRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={request.id} className="table-row-hover">
                   <td className="px-6 py-4 text-sm font-medium text-[#29B5E8]">{request.id}</td>
                   <td className="px-6 py-4 text-sm text-white">{request.title}</td>
                   <td className="px-6 py-4 text-sm text-gray-400">{request.requester}</td>

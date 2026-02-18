@@ -1,6 +1,7 @@
 'use client';
 
 import { Clock, CheckCircle, XCircle, Search } from 'lucide-react';
+import CountUp from '@/components/CountUp';
 import { STATUS_BADGE_STYLES } from '../constants';
 
 interface MyRequestsTabProps {
@@ -40,7 +41,7 @@ export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps)
             </div>
             <div>
               <p className="text-sm text-gray-500 uppercase tracking-wider">Pending</p>
-              <p className="text-3xl font-bold text-white mt-1">2</p>
+              <p className="text-3xl font-bold text-white mt-1"><CountUp end={2} /></p>
             </div>
           </div>
         </div>
@@ -52,7 +53,7 @@ export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps)
             </div>
             <div>
               <p className="text-sm text-gray-500 uppercase tracking-wider">Approved</p>
-              <p className="text-3xl font-bold text-white mt-1">2</p>
+              <p className="text-3xl font-bold text-white mt-1"><CountUp end={2} /></p>
             </div>
           </div>
         </div>
@@ -64,7 +65,7 @@ export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps)
             </div>
             <div>
               <p className="text-sm text-gray-500 uppercase tracking-wider">Rejected</p>
-              <p className="text-3xl font-bold text-white mt-1">1</p>
+              <p className="text-3xl font-bold text-white mt-1"><CountUp end={1} /></p>
             </div>
           </div>
         </div>
@@ -115,7 +116,7 @@ export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps)
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
               {filteredRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={request.id} className="table-row-hover">
                   <td className="px-6 py-4 text-sm font-medium text-[#29B5E8]">{request.id}</td>
                   <td className="px-6 py-4 text-sm text-white">{request.title}</td>
                   <td className="px-6 py-4 text-sm font-medium text-white">{request.amount}</td>
