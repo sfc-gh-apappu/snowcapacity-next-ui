@@ -46,7 +46,10 @@ func RegisterRoutes(r *gin.Engine, h *handlers.Handler) {
 	}
 
 	// ─── Admin ──────────────────────────────────────────────
-	// admin := api.Group("/admin")
-	// {
-	// }
+	admin := api.Group("/admin")
+	{
+		admin.GET("/requests", h.AdminRequests)
+		admin.GET("/quota-configs", h.QuotaConfigs)
+		admin.GET("/constrained-quotas", h.ConstrainedQuotas)
+	}
 }

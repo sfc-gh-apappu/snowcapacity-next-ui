@@ -393,4 +393,91 @@ filters client-side on the cached data.
 
 ## Admin
 
-_No endpoints yet._
+### `GET /api/admin/requests`
+
+Returns all capacity requests from the `REQUESTS` table, ordered by
+`created_at DESC`. The frontend filters by status client-side.
+
+**Query params:** _none_
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "req-RESERVATION_CREATE-f45fff93-...",
+      "requestor": "gelin.gao@snowflake.com",
+      "cloud": "AWS",
+      "snowcapDeployment": "Local",
+      "snowcapCluster": "US_EAST_1",
+      "createdAt": "2025-10-30T23:27:52.586087Z",
+      "type": "RESERVATION_CREATE",
+      "spec": "{ \"jira\": { ... }, \"spec\": { \"instance_type\": \"t2.small\", ... } }",
+      "status": "COMPLETED"
+    }
+  ]
+}
+```
+
+**Notes:**
+- Returns all requests regardless of status. The frontend filters by status pills.
+- `spec` is a JSON string containing request-specific payload details (region,
+  instance type, account info, etc.). The frontend can parse this to show
+  request-specific fields.
+- `type` values include: `RESERVATION_CREATE`, `QUOTA_CREATE`, `CAPACITY_BLOCK_CREATE`, etc.
+- `status` values include: `COMPLETED`, `FAILED`, `PENDING`, etc.
+
+---
+
+### `GET /api/admin/quota-configs`
+
+Returns all quota configurations from `CLOUD_QUOTA_CONFIGS`, ordered by
+`instance_type, quota_name`. The frontend toggles "enabled only" client-side.
+
+**Query params:** _none_
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "2ea455d0-0875-4c49-8c21-fe3fddd95ac7",
+      "cloud": "azure",
+      "providerNamespace": "Microsoft.Compute",
+      "enabled": true,
+      "requestor": "neha.bansal@snowflake.com",
+      "thresholdPercent": 60,
+      "description": "Onboarding",
+      "createdAt": "2025-11-05T20:08:20.215Z",
+      "lastUpdatedAt": "2026-01-06T05:46:15.532Z"
+    }
+  ]
+}
+```
+
+---
+
+### `GET /api/admin/constrained-quotas`
+
+Returns all constrained quotas from `CONSTRAINED_QUOTAS`, ordered by
+`quota_name, region`.
+
+**Query params:** _none_
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "quotaName": "standardEDSv5Family",
+      "region": "eastus2",
+      "incrementPercent": 10,
+      "createdAt": "2025-12-01T10:00:00Z",
+      "lastUpdated": "2026-02-10T15:30:00Z"
+    }
+  ]
+}
+```
