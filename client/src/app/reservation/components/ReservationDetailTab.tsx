@@ -3,18 +3,13 @@
 import { useState, useMemo } from 'react';
 import { Search, Check, XCircle, X } from 'lucide-react';
 import { useSortableData, SortHeader } from '@/components/SortableTable';
-import type { ReservationDetail } from '../constants';
-import { STATE_STYLES } from '../constants';
+import type { ReservationOverviewRow } from '../constants';
+import { getStateStyle } from '../constants';
 import ReservationDetailModal from './ReservationDetailModal';
 import ActionsDropdown, { ActionUnavailableModal } from './ActionsDropdown';
 
 function formatState(state: string) {
-  return state.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-function getUsagePct(total: number, available: number) {
-  if (total === 0) return 0;
-  return Math.round(((total - available) / total) * 100);
+  return state.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
 function getBarColor(pct: number) {
@@ -24,21 +19,21 @@ function getBarColor(pct: number) {
   return 'from-red-400 to-orange-400';
 }
 
-export default function ReservationDetailTab({ data }: { data: ReservationDetail[] }) {
+export default function ReservationDetailTab({ data }: { data: ReservationOverviewRow[] }) {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<ReservationDetail | null>(null);
+  const [selected, setSelected] = useState<ReservationOverviewRow | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const searched = data.filter((item) =>
-    item.reservationId.toLowerCase().includes(search.toLowerCase()) ||
+    item.awsReservationId.toLowerCase().includes(search.toLowerCase()) ||
     item.accountName.toLowerCase().includes(search.toLowerCase()) ||
     item.instanceType.toLowerCase().includes(search.toLowerCase())
   );
 
   const { sorted: filtered, sort, toggle } = useSortableData(searched);
 
-  const activeIds = useMemo(() => new Set(filtered.filter((r) => r.state === 'active').map((r) => r.id)), [filtered]);
+  const activeIds = useMemo(() => new Set(filtered.filter((r) => r.state === 'ACTIVE').map((r) => r.awsReservationId)), [filtered]);
 
   const allActiveChecked = activeIds.size > 0 && [...activeIds].every((id) => checkedIds.has(id));
   const someChecked = checkedIds.size > 0;
@@ -91,12 +86,12 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
                     </div>
                   </button>
                 </th>
-                <SortHeader label="AWS Reservation ID" sortKey="reservationId" currentSort={sort} onSort={toggle} />
+                <SortHeader label="AWS Reservation ID" sortKey="awsReservationId" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Account Name" sortKey="accountName" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Type" sortKey="reservationType" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Instance Type" sortKey="instanceType" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Total" sortKey="totalInstanceCount" currentSort={sort} onSort={toggle} align="right" />
-                <SortHeader label="Used" sortKey="usedInstanceCount" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Used" sortKey="usedInstances" currentSort={sort} onSort={toggle} align="right" />
                 <SortHeader label="Available" sortKey="availableInstanceCount" currentSort={sort} onSort={toggle} align="right" />
                 <th className="text-left px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider min-w-[150px]">Usage</th>
                 <SortHeader label="Created" sortKey="createdDate" currentSort={sort} onSort={toggle} />
@@ -105,19 +100,19 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
-              {filtered.map((item) => {
-                const pct = getUsagePct(item.totalInstanceCount, item.availableInstanceCount);
-                const isActive = item.state === 'active';
-                const isChecked = checkedIds.has(item.id);
+              {filtered.map((item, idx) => {
+                const pct = Math.round(item.usagePct);
+                const isActive = item.state === 'ACTIVE';
+                const isChecked = checkedIds.has(item.awsReservationId);
                 return (
                   <tr
-                    key={item.id}
+                    key={`${item.awsReservationId}-${idx}`}
                     onClick={() => setSelected(item)}
                     className={`table-row-hover cursor-pointer ${isChecked ? 'bg-[#29B5E8]/5' : ''}`}
                   >
                     <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
                       {isActive ? (
-                        <button onClick={() => toggleOne(item.id)} className="flex items-center justify-center">
+                        <button onClick={() => toggleOne(item.awsReservationId)} className="flex items-center justify-center">
                           <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
                             isChecked ? 'bg-[#29B5E8] border-[#29B5E8]' : 'border-[#3a3a3a] hover:border-[#555]'
                           }`}>
@@ -129,7 +124,7 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-xs font-mono text-[#29B5E8]">{item.reservationId}</span>
+                      <span className="text-xs font-mono text-[#29B5E8]">{item.awsReservationId}</span>
                     </td>
                     <td className="px-5 py-4 text-sm text-white">{item.accountName}</td>
                     <td className="px-5 py-4">
@@ -149,7 +144,7 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
                       </span>
                     </td>
                     <td className="px-5 py-4 text-sm text-white font-medium text-right tabular-nums">{item.totalInstanceCount}</td>
-                    <td className="px-5 py-4 text-sm text-emerald-400 font-medium text-right tabular-nums">{item.usedInstanceCount}</td>
+                    <td className="px-5 py-4 text-sm text-emerald-400 font-medium text-right tabular-nums">{item.usedInstances}</td>
                     <td className="px-5 py-4 text-sm text-gray-400 text-right tabular-nums">{item.availableInstanceCount}</td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -164,7 +159,7 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-500 whitespace-nowrap">{item.createdDate.split(' ')[0]}</td>
                     <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${STATE_STYLES[item.state]}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStateStyle(item.state)}`}>
                         {formatState(item.state)}
                       </span>
                     </td>

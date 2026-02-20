@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutDashboard, BarChart3, ArrowUpDown, Headphones, ChevronDown, X, AlertTriangle, AlertCircle, Gauge, Plus } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 import CountUp from '@/components/CountUp';
 import FilterBar from '@/components/FilterBar';
-import { apiFetch, type PaginatedData } from '@/lib/api';
+import { useApiQuery, type PaginatedData } from '@/lib/api';
 import type {
   QuotaOverviewResponse,
   QuotaAdjustmentRow,
@@ -36,30 +36,15 @@ export default function Quota() {
   const [adjTimeOverride, setAdjTimeOverride] = useState<string | undefined>(undefined);
   const [supportStatusOverride, setSupportStatusOverride] = useState<string | undefined>(undefined);
 
-  // ─── Backend data ───
-  const [overviewData, setOverviewData] = useState<QuotaOverviewResponse | null>(null);
-  const [adjustmentsData, setAdjustmentsData] = useState<QuotaAdjustmentRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // ─── Backend data (TanStack Query — cached & deduped) ───
+  const { data: overviewData, isLoading: overviewLoading, error: overviewError } =
+    useApiQuery<QuotaOverviewResponse>('/api/quota/overview');
+  const { data: adjResponse, isLoading: adjLoading, error: adjError } =
+    useApiQuery<PaginatedData<QuotaAdjustmentRow>>('/api/quota/adjustments');
 
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-
-    Promise.all([
-      apiFetch<QuotaOverviewResponse>('/api/quota/overview'),
-      apiFetch<PaginatedData<QuotaAdjustmentRow>>('/api/quota/adjustments'),
-    ])
-      .then(([overview, adjustments]) => {
-        if (cancelled) return;
-        setOverviewData(overview);
-        setAdjustmentsData(adjustments.items);
-      })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-
-    return () => { cancelled = true; };
-  }, []);
+  const adjustmentsData = adjResponse?.items ?? [];
+  const isLoading = overviewLoading || adjLoading;
+  const error = overviewError?.message ?? adjError?.message ?? null;
 
   // ─── Derive filter options from raw quotas ───
   const filterOptions = useMemo(() => {

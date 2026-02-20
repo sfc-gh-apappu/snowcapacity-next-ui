@@ -1,3 +1,5 @@
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
 export interface ApiResponse<T> {
@@ -25,4 +27,19 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
 
   return body.data;
+}
+
+/**
+ * Typed wrapper around useQuery + apiFetch.
+ * Data is cached by `path` and shared across components.
+ */
+export function useApiQuery<T>(
+  path: string,
+  options?: Omit<UseQueryOptions<T, Error>, 'queryKey' | 'queryFn'>,
+) {
+  return useQuery<T, Error>({
+    queryKey: [path],
+    queryFn: () => apiFetch<T>(path),
+    ...options,
+  });
 }

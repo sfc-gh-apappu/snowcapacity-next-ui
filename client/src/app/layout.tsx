@@ -5,6 +5,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import CommandPalette from "@/components/CommandPalette";
 import SplashScreen from "@/components/SplashScreen";
+import QueryProvider from "@/lib/queryClient";
 import { useState, useEffect, createContext, useContext } from "react";
 
 const geistSans = Geist({
@@ -50,17 +51,19 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
-          <SplashScreen>
-            <div className="flex min-h-screen bg-black">
-              <Sidebar />
-              <main className={`flex-1 min-w-0 p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-black via-[#0a0a0a] to-black transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
-                {children}
-              </main>
-              <CommandPalette />
-            </div>
-          </SplashScreen>
-        </SidebarContext.Provider>
+        <QueryProvider>
+          <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
+            <SplashScreen>
+              <div className="flex min-h-screen bg-black">
+                <Sidebar />
+                <main className={`flex-1 min-w-0 p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-black via-[#0a0a0a] to-black transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
+                  {children}
+                </main>
+                <CommandPalette />
+              </div>
+            </SplashScreen>
+          </SidebarContext.Provider>
+        </QueryProvider>
       </body>
     </html>
   );

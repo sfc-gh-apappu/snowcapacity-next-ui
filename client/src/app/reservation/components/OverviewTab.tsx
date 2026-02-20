@@ -7,10 +7,10 @@ import {
 } from 'recharts';
 import { Layers, Server, ServerOff, DollarSign, Download, Check } from 'lucide-react';
 import CountUp from '@/components/CountUp';
-import type { ReservationDetail } from '../constants';
+import type { ReservationOverviewRow } from '../constants';
 
 interface OverviewTabProps {
-  data: ReservationDetail[];
+  data: ReservationOverviewRow[];
 }
 
 const COLORS = ['#29B5E8', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1', '#14B8A6'];
@@ -31,50 +31,56 @@ export default function OverviewTab({ data }: OverviewTabProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const totalReservations = data.length;
-  const totalInstances = data.reduce((s, r) => s + r.totalInstanceCount, 0);
-  const totalUsed = data.reduce((s, r) => s + r.usedInstanceCount, 0);
-  const totalUnused = data.reduce((s, r) => s + r.availableInstanceCount, 0);
-  const totalUnusedSpend = data.reduce((s, r) => {
-    if (r.totalInstanceCount === 0) return s;
-    return s + r.monthlyRate * (r.availableInstanceCount / r.totalInstanceCount);
-  }, 0);
+  const activeData = useMemo(() => data.filter((r) => r.state === 'ACTIVE'), [data]);
+
+  const totalReservations = new Set(data.map((r) => r.awsReservationId)).size;
+  const totalInstances = activeData.reduce((s, r) => s + r.totalInstanceCount, 0);
+  const totalUsed = activeData.reduce((s, r) => s + r.usedInstances, 0);
+  const totalUnused = activeData.reduce((s, r) => s + r.availableInstanceCount, 0);
+  const totalUnusedSpend = data.reduce((s, r) => s + r.unusedSpendMonthly, 0);
 
   const costByAccount = useMemo(() => {
-    const map = new Map<string, { used: number; unused: number }>();
+    const map = new Map<string, { unused: number }>();
     for (const r of data) {
-      const prev = map.get(r.accountName) ?? { used: 0, unused: 0 };
-      const unusedRatio = r.totalInstanceCount > 0 ? r.availableInstanceCount / r.totalInstanceCount : 0;
-      prev.unused += r.monthlyRate * unusedRatio;
-      prev.used += r.monthlyRate * (1 - unusedRatio);
+      const prev = map.get(r.accountName) ?? { unused: 0 };
+      prev.unused += r.unusedSpendMonthly;
       map.set(r.accountName, prev);
     }
     return Array.from(map.entries())
-      .map(([name, v]) => ({ name, used: Math.round(v.used), unused: Math.round(v.unused), total: Math.round(v.used + v.unused) }))
-      .sort((a, b) => b.total - a.total);
+      .map(([name, v]) => ({ name, unused: Math.round(v.unused) }))
+      .filter((r) => r.unused > 0)
+      .sort((a, b) => b.unused - a.unused);
   }, [data]);
 
   const byInstanceType = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of data) map.set(r.instanceType, (map.get(r.instanceType) ?? 0) + 1);
+    const map = new Map<string, { count: number; instances: number }>();
+    for (const r of data) {
+      const prev = map.get(r.instanceType) ?? { count: 0, instances: 0 };
+      prev.count += 1;
+      prev.instances += r.totalInstanceCount;
+      map.set(r.instanceType, prev);
+    }
     return Array.from(map.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, v]) => ({ name, value: v.count, instances: v.instances }))
       .sort((a, b) => b.value - a.value);
   }, [data]);
 
   const utilization = useMemo(() => {
-    return data
-      .filter((r) => r.state === 'active')
-      .map((r) => {
-        const pct = r.totalInstanceCount > 0 ? Math.round((r.usedInstanceCount / r.totalInstanceCount) * 100) : 0;
-        return { name: r.reservationId.slice(-8), pct, full: r.reservationId, account: r.accountName, type: r.instanceType };
-      })
+    return activeData
+      .map((r, i) => ({
+        name: r.awsReservationId.slice(-8),
+        pct: Math.round(r.usagePct),
+        full: r.awsReservationId,
+        account: r.accountName,
+        type: r.instanceType,
+        key: `${r.awsReservationId}-${i}`,
+      }))
       .sort((a, b) => a.pct - b.pct);
-  }, [data]);
+  }, [activeData]);
 
   const exportCostByAccount = useCallback(() => {
-    const headers = ['Account', 'Used Cost', 'Unused Cost', 'Total Cost'];
-    const rows = costByAccount.map((r) => [r.name, r.used, r.unused, r.total]);
+    const headers = ['Account', 'Unused Cost'];
+    const rows = costByAccount.map((r) => [r.name, r.unused]);
     downloadCsv('reservation_cost_by_account.csv', headers, rows);
   }, [costByAccount]);
 
@@ -99,66 +105,73 @@ export default function OverviewTab({ data }: OverviewTabProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cost by Account */}
         <ChartCard
-          title="Cost by Account"
-          subtitle="Monthly spend (used vs unused)"
+          title="Unused Cost by Account"
+          subtitle={costByAccount.length > 0 ? 'Monthly unused spend by account' : 'Unused spend data not yet available'}
           accentColor="#29B5E8"
-          onExport={exportCostByAccount}
+          onExport={costByAccount.length > 0 ? exportCostByAccount : undefined}
           className="lg:col-span-2"
         >
-          {mounted && costByAccount.length > 0 && (
+          {mounted && costByAccount.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={costByAccount} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
                 <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmt$} />
                 <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
                 <Tooltip content={<CostTooltip />} />
-                <Bar dataKey="used" stackId="cost" fill="#29B5E8" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="unused" stackId="cost" fill="#EF4444" fillOpacity={0.6} radius={[0, 4, 4, 0]} />
+                <Bar dataKey="unused" fill="#EF4444" fillOpacity={0.7} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          )}
+          ) : mounted ? (
+            <div className="flex items-center justify-center h-full text-sm text-gray-600">
+              Cost data will appear once the unused spend pipeline is connected.
+            </div>
+          ) : null}
         </ChartCard>
 
         {/* By Instance Type */}
-        <ChartCard
-          title="By Instance Type"
-          subtitle="Reservation distribution"
-          accentColor="#8B5CF6"
-        >
-          {mounted && byInstanceType.length > 0 && (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={byInstanceType}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={3}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {byInstanceType.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<PieTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-          {/* Legend */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {byInstanceType.slice(0, 6).map((item, i) => (
-                <div key={item.name} className="flex items-center gap-1.5 text-[10px]">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+        <div className="group relative rounded-2xl overflow-hidden bg-[#0a0a0a] border border-[#1a1a1a]">
+          <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, #8B5CF6, transparent)' }} />
+          <div className="px-5 pt-4 pb-2">
+            <h3 className="text-sm font-semibold text-white">By Instance Type</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">Reservation distribution</p>
+          </div>
+          <div className="px-2 pb-2" style={{ height: 180 }}>
+            {mounted && byInstanceType.length > 0 && (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={byInstanceType}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={75}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {byInstanceType.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<PieTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          {/* Legend — outside chart area */}
+          <div className="px-5 pb-4 pt-1 border-t border-[#1a1a1a]">
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {byInstanceType.slice(0, 8).map((item, i) => (
+                <div key={item.name} className="flex items-center gap-1.5 text-[11px]">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                   <span className="text-gray-400">{item.name}</span>
+                  <span className="text-gray-600">({item.value})</span>
                 </div>
               ))}
-              {byInstanceType.length > 6 && <span className="text-[10px] text-gray-600">+{byInstanceType.length - 6} more</span>}
+              {byInstanceType.length > 8 && <span className="text-[11px] text-gray-600">+{byInstanceType.length - 8} more</span>}
             </div>
           </div>
-        </ChartCard>
+        </div>
       </div>
 
       {/* Utilization Bar */}
@@ -290,7 +303,7 @@ function downloadCsv(filename: string, headers: string[], rows: (string | number
 
 function TooltipShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-3 shadow-2xl backdrop-blur-sm">
+    <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl px-4 py-3 shadow-2xl backdrop-blur-sm">
       {children}
     </div>
   );
@@ -298,37 +311,34 @@ function TooltipShell({ children }: { children: React.ReactNode }) {
 
 function CostTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; value: number }>; label?: string }) {
   if (!active || !payload?.length) return null;
-  const used = payload.find((p) => p.dataKey === 'used')?.value ?? 0;
   const unused = payload.find((p) => p.dataKey === 'unused')?.value ?? 0;
   return (
     <TooltipShell>
       <p className="text-xs text-gray-400 mb-2 font-medium">{label}</p>
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-2 h-2 rounded-full bg-[#29B5E8]" />
-          <span className="text-gray-400">Used:</span>
-          <span className="text-white font-semibold">${used.toLocaleString()}/mo</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-2 h-2 rounded-full bg-[#EF4444]" />
-          <span className="text-gray-400">Unused:</span>
-          <span className="text-white font-semibold">${unused.toLocaleString()}/mo</span>
-        </div>
-        <div className="text-[11px] text-gray-500 pt-1 border-t border-[#2a2a2a]">
-          Total: <span className="text-white font-medium">${(used + unused).toLocaleString()}/mo</span>
-        </div>
+      <div className="flex items-center gap-2 text-sm">
+        <div className="w-2 h-2 rounded-full bg-[#EF4444]" />
+        <span className="text-gray-400">Unused:</span>
+        <span className="text-white font-semibold">${unused.toLocaleString()}/mo</span>
       </div>
     </TooltipShell>
   );
 }
 
-function PieTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) {
+function PieTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { instances: number } }> }) {
   if (!active || !payload?.length) return null;
+  const d = payload[0];
   return (
     <TooltipShell>
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-gray-400">{payload[0].name}:</span>
-        <span className="text-white font-semibold">{payload[0].value} reservation{payload[0].value !== 1 ? 's' : ''}</span>
+      <p className="text-xs text-gray-400 mb-1.5 font-medium">{d.name}</p>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-400">Reservations:</span>
+          <span className="text-white font-semibold">{d.value}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-400">Instances:</span>
+          <span className="text-white font-semibold">{d.payload.instances}</span>
+        </div>
       </div>
     </TooltipShell>
   );

@@ -2,16 +2,16 @@
 
 import { useEffect } from 'react';
 import { X, ClipboardList, DollarSign } from 'lucide-react';
-import type { ReservationDetail } from '../constants';
-import { STATE_STYLES } from '../constants';
+import type { ReservationOverviewRow } from '../constants';
+import { getStateStyle } from '../constants';
 
 interface Props {
-  item: ReservationDetail | null;
+  item: ReservationOverviewRow | null;
   onClose: () => void;
 }
 
 function formatState(state: string) {
-  return state.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return state.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
 export default function ReservationDetailModal({ item, onClose }: Props) {
@@ -57,10 +57,10 @@ export default function ReservationDetailModal({ item, onClose }: Props) {
           {/* Title + State */}
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-mono text-[#29B5E8] mb-1">{item.reservationId}</p>
-              <h3 className="text-lg font-semibold text-white">{item.ownerAccountName}</h3>
+              <p className="text-xs font-mono text-[#29B5E8] mb-1">{item.awsReservationId}</p>
+              <h3 className="text-lg font-semibold text-white">{item.accountName}</h3>
             </div>
-            <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${STATE_STYLES[item.state]}`}>
+            <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getStateStyle(item.state)}`}>
               {formatState(item.state)}
             </span>
           </div>
@@ -74,7 +74,7 @@ export default function ReservationDetailModal({ item, onClose }: Props) {
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Used</p>
-                <p className="text-xl font-bold text-emerald-400 tabular-nums">{item.usedInstanceCount}</p>
+                <p className="text-xl font-bold text-emerald-400 tabular-nums">{item.usedInstances}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Available</p>
@@ -88,19 +88,18 @@ export default function ReservationDetailModal({ item, onClose }: Props) {
 
           {/* Detail fields */}
           <div className="space-y-0 divide-y divide-[#1a1a1a]">
-            <DetailRow label="AWS Reservation ID" value={item.reservationId} mono />
+            <DetailRow label="AWS Reservation ID" value={item.awsReservationId} mono />
             <DetailRow label="Instance Type" value={item.instanceType} mono />
             <DetailRow label="Instance Platform" value={item.instancePlatform} />
             <DetailRow label="Reservation Type" value={item.reservationType} />
-            <DetailRow label="Instance Match Criteria" value={item.instanceMatchCriteria} />
-            <DetailRow label="Unlimited Use" value={item.unlimitedUse ? 'True' : 'False'} />
             <DetailRow label="Availability Zone" value={item.availabilityZone} />
             <DetailRow label="Region" value={item.region} />
             <DetailRow label="Owner Account ID" value={item.ownerAccountId} mono />
-            <DetailRow label="Owner Account Name" value={item.ownerAccountName} />
+            <DetailRow label="Account ID" value={item.accountId} mono />
+            <DetailRow label="Ownership" value={item.owned ? 'Owned' : 'Shared With'} />
             <DetailRow label="Created Date" value={item.createdDate} />
             <DetailRow label="Start Date" value={item.startDate} />
-            <DetailRow label="End Date" value={item.endDate ?? 'N/A'} />
+            <DetailRow label="End Date" value={item.endDate || 'N/A'} />
           </div>
         </div>
       </div>
@@ -108,14 +107,8 @@ export default function ReservationDetailModal({ item, onClose }: Props) {
   );
 }
 
-function CostCard({ item }: { item: ReservationDetail }) {
-  const utilPct = item.totalInstanceCount > 0
-    ? Math.round((item.usedInstanceCount / item.totalInstanceCount) * 100)
-    : 0;
-  const unusedRatio = item.totalInstanceCount > 0
-    ? item.availableInstanceCount / item.totalInstanceCount
-    : 0;
-  const unusedCost = Math.round(item.monthlyRate * unusedRatio);
+function CostCard({ item }: { item: ReservationOverviewRow }) {
+  const utilPct = Math.round(item.usagePct);
 
   const barColor = utilPct >= 90
     ? 'from-emerald-500 to-emerald-600'
@@ -129,16 +122,14 @@ function CostCard({ item }: { item: ReservationDetail }) {
     <div className="bg-black/50 rounded-xl p-4 border border-[#1a1a1a]">
       <div className="flex items-center gap-2 mb-3">
         <DollarSign className="w-4 h-4 text-[#29B5E8]" />
-        <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Cost &amp; Utilization</span>
+        <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Utilization</span>
       </div>
-      <div className="grid grid-cols-3 gap-4 mb-3">
+      <div className="grid grid-cols-2 gap-4 mb-3">
         <div>
-          <p className="text-xs text-gray-500 mb-1">Monthly Rate</p>
-          <p className="text-lg font-bold text-white tabular-nums">${item.monthlyRate.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Unused Cost</p>
-          <p className="text-lg font-bold text-red-400 tabular-nums">${unusedCost.toLocaleString()}</p>
+          <p className="text-xs text-gray-500 mb-1">Unused Spend</p>
+          <p className="text-lg font-bold text-red-400 tabular-nums">
+            {item.unusedSpendMonthly > 0 ? `$${Math.round(item.unusedSpendMonthly).toLocaleString()}/mo` : '—'}
+          </p>
         </div>
         <div>
           <p className="text-xs text-gray-500 mb-1">Utilization</p>

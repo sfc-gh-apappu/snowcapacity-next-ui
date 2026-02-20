@@ -2,14 +2,11 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Check, ClipboardList, FileText, LayoutDashboard, Plus } from 'lucide-react';
+import { ChevronDown, Check, ClipboardList, FileText, LayoutDashboard, Plus, Loader2 } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 import FilterBar from '@/components/FilterBar';
-import {
-  ACCOUNTS, REGIONS_OPTIONS, AVAILABILITY_ZONES, INSTANCE_TYPES,
-  INSTANCE_PLATFORMS, RESERVATION_TYPES, STATES, OWNERSHIP_OPTIONS,
-  RESERVATION_DATA,
-} from './constants';
+import { useApiQuery } from '@/lib/api';
+import type { ReservationOverviewResponse } from './constants';
 import OverviewTab from './components/OverviewTab';
 import ReservationDetailTab from './components/ReservationDetailTab';
 import ReservationRequestTab from './components/ReservationRequestTab';
@@ -24,6 +21,14 @@ export default function Reservation() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
 
+  // ─── Backend data (TanStack Query — cached & deduped) ───
+  const { data, isLoading, error: queryError } =
+    useApiQuery<ReservationOverviewResponse>('/api/reservations/overview');
+  const error = queryError?.message ?? null;
+
+  // ─── Filter options from backend ───
+  const filterOptions = data?.filterOptions;
+
   // Multiselect filter state — empty array means "all selected"
   const [accounts, setAccounts] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
@@ -34,9 +39,10 @@ export default function Reservation() {
   const [states, setStates] = useState<string[]>([]);
   const [ownership, setOwnership] = useState<string[]>([]);
 
-  // Filter data
+  // Filter data client-side
   const filteredData = useMemo(() => {
-    return RESERVATION_DATA.filter((item) => {
+    if (!data) return [];
+    return data.reservations.filter((item) => {
       if (accounts.length > 0 && !accounts.includes(item.accountName)) return false;
       if (regions.length > 0 && !regions.includes(item.region)) return false;
       if (zones.length > 0 && !zones.includes(item.availabilityZone)) return false;
@@ -44,10 +50,13 @@ export default function Reservation() {
       if (platforms.length > 0 && !platforms.includes(item.instancePlatform)) return false;
       if (resTypes.length > 0 && !resTypes.includes(item.reservationType)) return false;
       if (states.length > 0 && !states.includes(item.state)) return false;
-      if (ownership.length > 0 && !ownership.includes(item.ownership)) return false;
+      if (ownership.length > 0) {
+        const label = item.owned ? 'Owned' : 'Shared With';
+        if (!ownership.includes(label)) return false;
+      }
       return true;
     });
-  }, [accounts, regions, zones, instanceTypes, platforms, resTypes, states, ownership]);
+  }, [data, accounts, regions, zones, instanceTypes, platforms, resTypes, states, ownership]);
 
   return (
     <PageTransition>
@@ -72,18 +81,20 @@ export default function Reservation() {
       </div>
 
       {/* Filter Bar */}
-      <FilterBar>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          <MultiSelect label="Account" options={ACCOUNTS} selected={accounts} onChange={setAccounts} />
-          <MultiSelect label="Region" options={REGIONS_OPTIONS} selected={regions} onChange={setRegions} />
-          <MultiSelect label="Availability Zone" options={AVAILABILITY_ZONES} selected={zones} onChange={setZones} />
-          <MultiSelect label="Instance Type" options={INSTANCE_TYPES} selected={instanceTypes} onChange={setInstanceTypes} />
-          <MultiSelect label="Instance Platform" options={INSTANCE_PLATFORMS} selected={platforms} onChange={setPlatforms} />
-          <MultiSelect label="Reservation Type" options={RESERVATION_TYPES} selected={resTypes} onChange={setResTypes} />
-          <MultiSelect label="State" options={STATES} selected={states} onChange={setStates} />
-          <MultiSelect label="Owned / Shared" options={OWNERSHIP_OPTIONS} selected={ownership} onChange={setOwnership} />
-        </div>
-      </FilterBar>
+      {filterOptions && (
+        <FilterBar>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <MultiSelect label="Account" options={filterOptions.accounts.map((a) => a.accountName)} selected={accounts} onChange={setAccounts} />
+            <MultiSelect label="Region" options={filterOptions.regions} selected={regions} onChange={setRegions} />
+            <MultiSelect label="Availability Zone" options={filterOptions.availabilityZones} selected={zones} onChange={setZones} />
+            <MultiSelect label="Instance Type" options={filterOptions.instanceTypes} selected={instanceTypes} onChange={setInstanceTypes} />
+            <MultiSelect label="Instance Platform" options={filterOptions.instancePlatforms} selected={platforms} onChange={setPlatforms} />
+            <MultiSelect label="Reservation Type" options={filterOptions.reservationTypes} selected={resTypes} onChange={setResTypes} />
+            <MultiSelect label="State" options={filterOptions.states} selected={states} onChange={setStates} />
+            <MultiSelect label="Owned / Shared" options={filterOptions.ownedOrSharedWith} selected={ownership} onChange={setOwnership} />
+          </div>
+        </FilterBar>
+      )}
 
       {/* Pill Tabs */}
       <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit max-w-full overflow-x-auto">
@@ -109,10 +120,27 @@ export default function Reservation() {
         })}
       </div>
 
+      {/* Loading / Error */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-5 h-5 text-[#29B5E8] animate-spin" />
+          <span className="ml-2 text-sm text-gray-500">Loading reservation data…</span>
+        </div>
+      )}
+      {error && (
+        <div className="text-center py-20">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
       {/* Tab Content */}
-      {activeTab === 'overview' && <OverviewTab data={filteredData} />}
-      {activeTab === 'detail' && <ReservationDetailTab data={filteredData} />}
-      {activeTab === 'request' && <ReservationRequestTab />}
+      {!isLoading && !error && (
+        <>
+          {activeTab === 'overview' && <OverviewTab data={filteredData} />}
+          {activeTab === 'detail' && <ReservationDetailTab data={filteredData} />}
+          {activeTab === 'request' && <ReservationRequestTab />}
+        </>
+      )}
     </div>
     </PageTransition>
   );
@@ -174,7 +202,6 @@ function MultiSelect({
 
       {open && (
         <div className="absolute z-50 mt-1.5 w-full bg-[#111] border border-[#2a2a2a] rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
-          {/* Select All */}
           <button
             onClick={selectAll}
             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-[#1a1a1a] transition-colors border-b border-[#1a1a1a]"

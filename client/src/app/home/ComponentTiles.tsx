@@ -3,20 +3,67 @@
 import Link from 'next/link';
 import { BarChart3, Database, Calendar, FileText, ArrowUpRight } from 'lucide-react';
 import CountUp from '@/components/CountUp';
-import { COMPONENT_SNAPSHOTS } from './constants';
+import type { HomeOverviewResponse } from './constants';
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  capacity: BarChart3,
-  quotas: Database,
-  reservations: Calendar,
-  requests: FileText,
-};
+interface Props {
+  data: HomeOverviewResponse;
+}
 
-export default function ComponentTiles() {
+function fmt$(v: number) {
+  if (v >= 1000) return `$${(v / 1000).toFixed(1)}K`;
+  return `$${v}`;
+}
+
+export default function ComponentTiles({ data }: Props) {
+  const tiles = [
+    {
+      id: 'capacity',
+      label: 'Capacity Overview',
+      icon: BarChart3,
+      metric: data.capacityOverview.totalDeployments,
+      metricLabel: 'Total Deployments',
+      subMetric: `${Math.round(data.capacityOverview.avgUtilizationPct)} avg demand (instances)`,
+      href: '/capacity-overview',
+      color: '#29B5E8',
+    },
+    {
+      id: 'quotas',
+      label: 'Quotas',
+      icon: Database,
+      metric: data.quotaSummary.totalQuotasMonitored,
+      metricLabel: 'Quotas Monitored',
+      subMetric: `${data.quotaSummary.atRisk} at risk (${data.quotaSummary.atRiskPct}% above 80%)`,
+      href: '/quota',
+      color: '#8B5CF6',
+    },
+    {
+      id: 'reservations',
+      label: 'Reservations',
+      icon: Calendar,
+      metric: data.reservationsSummary.activeReservations,
+      metricLabel: 'Active Reservations',
+      subMetric: data.reservationsSummary.unusedSpendUsdThisWeek > 0
+        ? `${fmt$(data.reservationsSummary.unusedSpendUsdThisWeek)} unused this week`
+        : 'Unused spend data pending',
+      href: '/reservation',
+      color: '#10B981',
+    },
+    {
+      id: 'requests',
+      label: 'Requests',
+      icon: FileText,
+      metric: data.requestsSummary.pendingReview,
+      metricLabel: 'Pending Review',
+      subMetric: `${data.requestsSummary.completedThisMonth} completed this month`,
+      href: '/request',
+      color: '#F59E0B',
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {COMPONENT_SNAPSHOTS.map((snap) => {
-        const Icon = ICONS[snap.id] || BarChart3;
+      {tiles.map((snap) => {
+        const Icon = snap.icon;
         return (
           <Link
             key={snap.id}

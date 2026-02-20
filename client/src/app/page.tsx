@@ -1,14 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus, Share2 } from 'lucide-react';
+import { Plus, Share2, Loader2 } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
+import { useApiQuery } from '@/lib/api';
+import type { HomeOverviewResponse } from './home/constants';
 import CloudHealthStrip from './home/CloudHealthStrip';
 import ComponentTiles from './home/ComponentTiles';
 import MyActivity from './home/MyActivity';
 import { ActivityFeed } from './home/RequestsSummary';
 
 export default function Home() {
+  const { data, isLoading, error } = useApiQuery<HomeOverviewResponse>('/api/home/overview');
+
   return (
     <PageTransition>
       <div className="space-y-8">
@@ -42,29 +46,46 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ─── Cloud Health Strip ─── */}
-        <section>
-          <SectionLabel label="Cloud Health" />
-          <CloudHealthStrip />
-        </section>
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-5 h-5 text-[#29B5E8] animate-spin" />
+            <span className="ml-2 text-sm text-gray-500">Loading dashboard…</span>
+          </div>
+        )}
 
-        {/* ─── Component Snapshots ─── */}
-        <section>
-          <SectionLabel label="Platform at a Glance" />
-          <ComponentTiles />
-        </section>
+        {error && (
+          <div className="text-center py-20">
+            <p className="text-sm text-red-400">{error.message}</p>
+          </div>
+        )}
 
-        {/* ─── Two-Column Bottom ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <section>
-            <SectionLabel label="My Activity" />
-            <MyActivity />
-          </section>
-          <section>
-            <SectionLabel label="Platform Feed" />
-            <ActivityFeed />
-          </section>
-        </div>
+        {data && (
+          <>
+            {/* ─── Cloud Health Strip ─── */}
+            <section>
+              <SectionLabel label="Cloud Health" />
+              <CloudHealthStrip byCloud={data.byCloud} />
+            </section>
+
+            {/* ─── Component Snapshots ─── */}
+            <section>
+              <SectionLabel label="Platform at a Glance" />
+              <ComponentTiles data={data} />
+            </section>
+
+            {/* ─── Two-Column Bottom ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+              <section>
+                <SectionLabel label="My Activity" />
+                <MyActivity />
+              </section>
+              <section className="flex flex-col" style={{ height: 'fit-content' }}>
+                <SectionLabel label="Platform Feed" />
+                <ActivityFeed items={data.recentActivity} />
+              </section>
+            </div>
+          </>
+        )}
       </div>
     </PageTransition>
   );

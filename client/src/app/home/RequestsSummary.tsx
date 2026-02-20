@@ -1,101 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { PieChart as PieIcon, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import DashCard from './DashCard';
-import {
-  TOTAL_REQUESTS,
-  COMPLETED_REQUESTS,
-  REQUEST_BREAKDOWN,
-  RECENT_ACTIVITIES,
-} from './constants';
+import type { ActivityItem } from './constants';
 
-/* ─────────────────────────────────────────────────────────
-   Request Status Donut
-   ───────────────────────────────────────────────────────── */
-
-export function RequestDonut() {
-  const completionPct = Math.round((COMPLETED_REQUESTS / TOTAL_REQUESTS) * 100);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  return (
-    <DashCard
-      title="Request Status"
-      subtitle="Distribution across all requests"
-      accentColor="#8B5CF6"
-      icon={<PieIcon className="w-4 h-4" />}
-    >
-      <div className="flex flex-col items-center">
-        {/* Donut */}
-        <div className="relative w-[180px] h-[180px]">
-          {mounted && <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={REQUEST_BREAKDOWN}
-                cx="50%"
-                cy="50%"
-                innerRadius={58}
-                outerRadius={80}
-                dataKey="count"
-                stroke="none"
-                paddingAngle={3}
-                cornerRadius={4}
-              >
-                {REQUEST_BREAKDOWN.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  background: '#111',
-                  border: '1px solid #222',
-                  borderRadius: 12,
-                  fontSize: 12,
-                  padding: '8px 12px',
-                }}
-                itemStyle={{ color: '#9ca3af' }}
-                formatter={(value) => [`${value} requests`, '']}
-              />
-            </PieChart>
-          </ResponsiveContainer>}
-          {/* Center label */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-3xl font-bold text-white tabular-nums">{completionPct}%</span>
-            <span className="text-[10px] text-gray-500 font-medium">completed</span>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 mt-5 w-full max-w-[280px]">
-          {REQUEST_BREAKDOWN.map((b) => (
-            <div key={b.status} className="flex items-center gap-2">
-              <div
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: b.color, boxShadow: `0 0 6px ${b.color}30` }}
-              />
-              <span className="text-[11px] text-gray-500 truncate">{b.status}</span>
-              <span className="text-[11px] font-semibold text-white ml-auto tabular-nums">{b.count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </DashCard>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
-   Activity Feed
-   ───────────────────────────────────────────────────────── */
-
-function getActivityColor(type: string) {
-  if (type === 'quota') return '#29B5E8';
-  if (type === 'reservation') return '#EAB308';
+function getActivityColor(kind: string) {
+  if (kind.startsWith('quota')) return '#29B5E8';
+  if (kind.startsWith('reservation')) return '#EAB308';
   return '#8B5CF6';
 }
 
-export function ActivityFeed() {
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+export function ActivityFeed({ items }: { items: ActivityItem[] }) {
   return (
     <DashCard
       title="Recent Activity"
@@ -103,39 +29,41 @@ export function ActivityFeed() {
       accentColor="#6B7280"
       icon={<Clock className="w-4 h-4" />}
     >
-      <div className="space-y-0.5">
-        {RECENT_ACTIVITIES.map((a, i) => {
-          const dotColor = getActivityColor(a.type);
-          return (
-            <div
-              key={i}
-              className="flex items-start gap-3 px-3 py-3 rounded-xl hover:bg-white/[0.02] transition-colors"
-            >
-              {/* Timeline dot + connector */}
-              <div className="relative mt-[5px] flex-shrink-0">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}40` }}
-                />
-                {i < RECENT_ACTIVITIES.length - 1 && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-px h-6 bg-gradient-to-b from-[#222] to-transparent" />
-                )}
-              </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-600 py-6 text-center">No recent activity</p>
+      ) : (
+        <div className="space-y-0.5 max-h-[320px] overflow-y-auto pr-1 scrollbar-thin">
+          {items.map((a, i) => {
+            const dotColor = getActivityColor(a.kind);
+            const kindLabel = a.kind.replace(/_/g, ' ');
+            return (
+              <div
+                key={`${a.timestamp}-${i}`}
+                className="flex items-start gap-3 px-3 py-3 rounded-xl hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="relative mt-[5px] flex-shrink-0">
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}40` }}
+                  />
+                  {i < items.length - 1 && (
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-px h-6 bg-gradient-to-b from-[#222] to-transparent" />
+                  )}
+                </div>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white font-medium leading-tight">{a.action}</p>
-                <p className="text-xs text-gray-500 mt-0.5 truncate">{a.detail}</p>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white font-medium leading-tight">{a.summary}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate capitalize">{kindLabel}</p>
+                </div>
 
-              {/* Time */}
-              <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0 tabular-nums mt-0.5">
-                {a.time}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+                <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0 tabular-nums mt-0.5">
+                  {timeAgo(a.timestamp)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </DashCard>
   );
 }
