@@ -418,6 +418,86 @@ _No endpoints yet._
 
 ## Reservations
 
+### `GET /api/reservations/overview`
+
+Returns the full reservations dataset in a single call. A single query fetches
+all active/pending/queued reservations from `ODCR_RESERVATION`, computes derived
+fields server-side, and builds filter options in memory. The frontend can derive
+all KPIs, charts, and filtered views client-side without additional backend requests.
+
+**Query params:** _none_ (called once on page load, all filtering is client-side)
+
+**Response:**
+
+```json
+{
+  "data": {
+    "reservations": [
+      {
+        "awsReservationId": "cr-0abc1234def56789",
+        "accountName": "sfc-prod",
+        "accountId": "123456789012",
+        "ownerAccountId": "123456789012",
+        "region": "us-east-1",
+        "availabilityZone": "us-east-1a",
+        "instanceType": "m5.2xlarge",
+        "instancePlatform": "Linux/UNIX",
+        "reservationType": "ODCR",
+        "state": "ACTIVE",
+        "totalInstanceCount": 10,
+        "availableInstanceCount": 4,
+        "usedInstances": 6,
+        "usagePct": 60.0,
+        "hourlyPrice": 0,
+        "currencyCode": "USD",
+        "startDate": "2026-01-15 10:30:00",
+        "endDate": "",
+        "createdDate": "2026-01-15 10:30:00",
+        "owned": true,
+        "unusedSpendMonthly": 0
+      }
+    ],
+    "filterOptions": {
+      "accounts": [
+        { "accountId": "123456789012", "accountName": "sfc-prod" }
+      ],
+      "regions": ["us-east-1", "us-west-2"],
+      "availabilityZones": ["us-east-1a", "us-east-1b", "us-west-2a"],
+      "instanceTypes": ["m5.2xlarge", "r5.2xlarge"],
+      "instancePlatforms": ["Linux/UNIX"],
+      "reservationTypes": ["ODCR", "CAPACITY_BLOCK"],
+      "states": ["ACTIVE", "PENDING"],
+      "ownedOrSharedWith": ["Owned", "Shared With"]
+    }
+  }
+}
+```
+
+**Derived fields (computed server-side per reservation):**
+
+| Field | Derivation |
+|---|---|
+| `region` | `availabilityZone` minus trailing character (e.g. `us-east-1a` → `us-east-1`) |
+| `usedInstances` | `totalInstanceCount - availableInstanceCount` |
+| `usagePct` | `usedInstances / totalInstanceCount * 100` (0 if total is 0) |
+| `owned` | `true` if `ownerAccountId == accountId`, else `false` |
+| `hourlyPrice` | Always 0 (column not present in `ODCR_RESERVATION`) |
+| `unusedSpendMonthly` | Always 0 (unused spend query deferred to future pre-aggregated table) |
+
+**Filter options:** Derived in-memory from the reservation rows (no separate SQL).
+
+**Frontend KPIs (all derivable from `reservations[]`):**
+- Total reservations: `count(reservations)`
+- Total instances: `sum(totalInstanceCount)` where state = ACTIVE
+- Used instances: `sum(usedInstances)` where state = ACTIVE
+- Unused instances: `sum(availableInstanceCount)` where state = ACTIVE
+
+**Frontend charts (all derivable from `reservations[]`):**
+- By Instance Type: group by `instanceType`, count reservations or sum instances
+- Utilization by Reservation: plot `usagePct` per reservation (state = ACTIVE)
+
+---
+
 ### `GET /api/reservations/filters`
 
 Returns all filter options for the Reservations page. All values are derived

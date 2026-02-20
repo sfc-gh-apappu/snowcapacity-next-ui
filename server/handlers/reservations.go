@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"math"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -121,6 +123,173 @@ func (h *Handler) ReservationDetail(c *gin.Context) {
 	}
 
 	models.Success(c, rows)
+}
+
+// ReservationOverview returns a single payload with all reservation data and
+// filter options. Two Snowhouse queries run concurrently via errgroup, are
+// joined in memory, and the frontend can derive KPIs/charts/filters client-side.
+//
+//	GET /api/reservations/overview
+func (h *Handler) ReservationOverview(c *gin.Context) {
+	models.MarkStart(c)
+	ctx := c.Request.Context()
+
+	reservations, err := h.fetchOverviewReservations(ctx)
+	if err != nil {
+		models.Error(c, http.StatusInternalServerError, models.ErrCodeQueryFailed, err.Error())
+		return
+	}
+
+	// Derive filter options from the reservation rows (no extra SQL)
+	filters := deriveReservationFilters(reservations)
+
+	models.Success(c, models.ReservationOverviewResponse{
+		Reservations:  reservations,
+		FilterOptions: filters,
+	})
+}
+
+// deriveReservationFilters builds filter option lists from the in-memory reservation set.
+func deriveReservationFilters(rows []models.ReservationOverviewRow) models.ReservationFiltersResponse {
+	accountMap := make(map[string]string) // id → name
+	regionSet := make(map[string]bool)
+	azSet := make(map[string]bool)
+	typeSet := make(map[string]bool)
+	platformSet := make(map[string]bool)
+	resTypeSet := make(map[string]bool)
+	stateSet := make(map[string]bool)
+	hasOwned, hasShared := false, false
+
+	for _, r := range rows {
+		if r.AccountId != "" {
+			accountMap[r.AccountId] = r.AccountName
+		}
+		if r.Region != "" {
+			regionSet[r.Region] = true
+		}
+		if r.AvailabilityZone != "" {
+			azSet[r.AvailabilityZone] = true
+		}
+		if r.InstanceType != "" {
+			typeSet[r.InstanceType] = true
+		}
+		if r.InstancePlatform != "" {
+			platformSet[r.InstancePlatform] = true
+		}
+		if r.ReservationType != "" {
+			resTypeSet[r.ReservationType] = true
+		}
+		if r.State != "" {
+			stateSet[r.State] = true
+		}
+		if r.Owned {
+			hasOwned = true
+		} else {
+			hasShared = true
+		}
+	}
+
+	accounts := make([]models.ReservationAccount, 0, len(accountMap))
+	for id, name := range accountMap {
+		accounts = append(accounts, models.ReservationAccount{AccountID: id, AccountName: name})
+	}
+	sort.Slice(accounts, func(i, j int) bool { return accounts[i].AccountName < accounts[j].AccountName })
+
+	ownedOrShared := make([]string, 0, 2)
+	if hasOwned {
+		ownedOrShared = append(ownedOrShared, "Owned")
+	}
+	if hasShared {
+		ownedOrShared = append(ownedOrShared, "Shared With")
+	}
+
+	return models.ReservationFiltersResponse{
+		Accounts:          accounts,
+		Regions:           sortedKeys(regionSet),
+		AvailabilityZones: sortedKeys(azSet),
+		InstanceTypes:     sortedKeys(typeSet),
+		InstancePlatforms: sortedKeys(platformSet),
+		ReservationTypes:  sortedKeys(resTypeSet),
+		States:            sortedKeys(stateSet),
+		OwnedOrSharedWith: ownedOrShared,
+	}
+}
+
+// fetchOverviewReservations loads all active/pending/queued reservations with
+// columns needed for KPIs, charts, filters, and the detail table.
+func (h *Handler) fetchOverviewReservations(ctx context.Context) ([]models.ReservationOverviewRow, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(AWS_RESERVATION_ID, '')            AS AWS_RESERVATION_ID,
+			COALESCE(ACCOUNT_NAME, '')                  AS ACCOUNT_NAME,
+			COALESCE(ACCOUNT_ID, '')                    AS ACCOUNT_ID,
+			COALESCE(OWNER_ACCOUNT_ID, '')              AS OWNER_ACCOUNT_ID,
+			COALESCE(AVAILABILITY_ZONE, '')              AS AVAILABILITY_ZONE,
+			COALESCE(INSTANCE_TYPE, '')                  AS INSTANCE_TYPE,
+			COALESCE(INSTANCE_PLATFORM, '')              AS INSTANCE_PLATFORM,
+			COALESCE(RESERVATION_TYPE, '')               AS RESERVATION_TYPE,
+			COALESCE(STATE, '')                          AS STATE,
+			COALESCE(TOTAL_INSTANCE_COUNT, 0)            AS TOTAL_INSTANCE_COUNT,
+			COALESCE(AVAILABLE_INSTANCE_COUNT, 0)        AS AVAILABLE_INSTANCE_COUNT,
+			COALESCE(TO_VARCHAR(START_DATE), '')          AS START_DATE,
+			COALESCE(TO_VARCHAR(END_DATE), '')            AS END_DATE,
+			COALESCE(TO_VARCHAR(CREATED_DATE), '')        AS CREATED_DATE
+		FROM %s
+		WHERE STATE IN ('ACTIVE', 'PENDING', 'QUEUED')
+		ORDER BY CREATED_DATE DESC
+	`, reservationTable)
+
+	rows, err := h.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query overview reservations: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.ReservationOverviewRow
+	for rows.Next() {
+		var r models.ReservationOverviewRow
+		if err := rows.Scan(
+			&r.AwsReservationId,
+			&r.AccountName,
+			&r.AccountId,
+			&r.OwnerAccountId,
+			&r.AvailabilityZone,
+			&r.InstanceType,
+			&r.InstancePlatform,
+			&r.ReservationType,
+			&r.State,
+			&r.TotalInstanceCount,
+			&r.AvailableInstanceCount,
+			&r.StartDate,
+			&r.EndDate,
+			&r.CreatedDate,
+		); err != nil {
+			return nil, fmt.Errorf("scan overview reservation: %w", err)
+		}
+
+		r.CurrencyCode = "USD"
+
+		// Derived: region = AZ minus trailing character
+		if len(r.AvailabilityZone) > 0 {
+			r.Region = r.AvailabilityZone[:len(r.AvailabilityZone)-1]
+		}
+		// Derived: used instances and usage percentage
+		r.UsedInstances = r.TotalInstanceCount - r.AvailableInstanceCount
+		if r.TotalInstanceCount > 0 {
+			r.UsagePct = math.Round(float64(r.UsedInstances)/float64(r.TotalInstanceCount)*10000) / 100
+		}
+		// Derived: owned flag
+		r.Owned = r.OwnerAccountId == r.AccountId
+
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows overview reservations: %w", err)
+	}
+	if results == nil {
+		results = []models.ReservationOverviewRow{}
+	}
+	return results, nil
 }
 
 // ─── Internal helpers ───────────────────────────────────────

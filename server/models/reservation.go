@@ -42,3 +42,37 @@ type ReservationDetailRow struct {
 	State                  string  `json:"state"`
 	InstanceMatchCriteria  string  `json:"instanceMatchCriteria"`
 }
+
+// ─── Reservation Overview ────────────────────────────────────
+
+// ReservationOverviewRow is a single reservation with all fields needed
+// for KPIs, charts, filters, and the detail table. Returned by /api/reservations/overview.
+type ReservationOverviewRow struct {
+	AwsReservationId       string  `json:"awsReservationId"`
+	AccountName            string  `json:"accountName"`
+	AccountId              string  `json:"accountId"`
+	OwnerAccountId         string  `json:"ownerAccountId"`
+	Region                 string  `json:"region"`
+	AvailabilityZone       string  `json:"availabilityZone"`
+	InstanceType           string  `json:"instanceType"`
+	InstancePlatform       string  `json:"instancePlatform"`
+	ReservationType        string  `json:"reservationType"`
+	State                  string  `json:"state"`
+	TotalInstanceCount     int     `json:"totalInstanceCount"`
+	AvailableInstanceCount int     `json:"availableInstanceCount"`
+	UsedInstances          int     `json:"usedInstances"`
+	UsagePct               float64 `json:"usagePct"`
+	HourlyPrice            float64 `json:"hourlyPrice"`
+	CurrencyCode           string  `json:"currencyCode"`
+	StartDate              string  `json:"startDate"`
+	EndDate                string  `json:"endDate"`
+	CreatedDate            string  `json:"createdDate"`
+	Owned                  bool    `json:"owned"`
+	UnusedSpendMonthly     float64 `json:"unusedSpendMonthly"`
+}
+
+// ReservationOverviewResponse is the top-level payload for GET /api/reservations/overview.
+type ReservationOverviewResponse struct {
+	Reservations  []ReservationOverviewRow   `json:"reservations"`
+	FilterOptions ReservationFiltersResponse `json:"filterOptions"`
+}

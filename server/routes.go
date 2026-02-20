@@ -14,9 +14,10 @@ func RegisterRoutes(r *gin.Engine, h *handlers.Handler) {
 	api.GET("/health", h.Health)
 
 	// ─── Home ───────────────────────────────────────────────
-	// home := api.Group("/home")
-	// {
-	// }
+	home := api.Group("/home")
+	{
+		home.GET("/overview", h.HomeOverview)
+	}
 
 	// ─── Capacity Overview ──────────────────────────────────
 	capacity := api.Group("/capacity")
@@ -42,6 +43,7 @@ func RegisterRoutes(r *gin.Engine, h *handlers.Handler) {
 	// ─── Reservations ───────────────────────────────────────
 	reservations := api.Group("/reservations")
 	{
+		reservations.GET("/overview", h.ReservationOverview)
 		reservations.GET("/filters", h.ReservationFilters)
 		reservations.GET("/detail", h.ReservationDetail)
 	}
