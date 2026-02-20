@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, ListFilter, Eye } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 import CreateRequestTab from './components/CreateRequestTab';
@@ -14,7 +15,13 @@ const tabs = [
 ];
 
 export default function Request() {
-  const [activeTab, setActiveTab] = useState('my-requests');
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') ?? 'my-requests';
+  const initialType = searchParams.get('type') ?? '';
+  const initialCloud = searchParams.get('cloud') ?? 'all';
+  const initialStatus = searchParams.get('status') ?? 'all';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [filter, setFilter] = useState('all');
 
   return (
@@ -55,9 +62,9 @@ export default function Request() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'create' && <CreateRequestTab />}
+      {activeTab === 'create' && <CreateRequestTab initialType={initialType} />}
       {activeTab === 'my-requests' && <MyRequestsTab filter={filter} setFilter={setFilter} />}
-      {activeTab === 'view' && <ViewRequestsTab />}
+      {activeTab === 'view' && <ViewRequestsTab initialCloud={initialCloud} initialStatus={initialStatus} />}
     </div>
     </PageTransition>
   );

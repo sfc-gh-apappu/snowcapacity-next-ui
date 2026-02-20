@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { Clock, CheckCircle, XCircle, Search } from 'lucide-react';
 import CountUp from '@/components/CountUp';
 import { STATUS_BADGE_STYLES } from '../constants';
+import RequestDetailModal, { type RequestSummary } from './RequestDetailModal';
 
 interface MyRequestsTabProps {
   filter: string;
@@ -28,6 +30,7 @@ function getStatusIcon(status: string) {
 
 export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps) {
   const filteredRequests = filter === 'all' ? myRequests : myRequests.filter(req => req.status === filter);
+  const [selectedRequest, setSelectedRequest] = useState<RequestSummary | null>(null);
 
   return (
     <div className="space-y-6">
@@ -130,7 +133,10 @@ export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps)
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <button className="text-[#29B5E8] hover:text-[#56C9F5] font-medium text-sm transition-colors">
+                    <button
+                      onClick={() => setSelectedRequest(request)}
+                      className="text-[#29B5E8] hover:text-[#56C9F5] font-medium text-sm transition-colors"
+                    >
                       View Details
                     </button>
                   </td>
@@ -140,6 +146,10 @@ export default function MyRequestsTab({ filter, setFilter }: MyRequestsTabProps)
           </table>
         </div>
       </div>
+
+      {selectedRequest && (
+        <RequestDetailModal request={selectedRequest} onClose={() => setSelectedRequest(null)} />
+      )}
     </div>
   );
 }

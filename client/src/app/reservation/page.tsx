@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronDown, Check, ClipboardList, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, Check, ClipboardList, FileText, LayoutDashboard, Plus } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 import FilterBar from '@/components/FilterBar';
 import {
@@ -9,16 +10,19 @@ import {
   INSTANCE_PLATFORMS, RESERVATION_TYPES, STATES, OWNERSHIP_OPTIONS,
   RESERVATION_DATA,
 } from './constants';
+import OverviewTab from './components/OverviewTab';
 import ReservationDetailTab from './components/ReservationDetailTab';
 import ReservationRequestTab from './components/ReservationRequestTab';
 
 const tabs = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'detail', label: 'Reservation Detail', icon: ClipboardList },
   { id: 'request', label: 'Reservation Request', icon: FileText },
 ];
 
 export default function Reservation() {
-  const [activeTab, setActiveTab] = useState('detail');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Multiselect filter state — empty array means "all selected"
   const [accounts, setAccounts] = useState<string[]>([]);
@@ -49,13 +53,22 @@ export default function Reservation() {
     <PageTransition>
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
-          <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
-            Reservations
-          </span>
-        </h1>
-        <p className="text-gray-400 mt-2 text-lg">Manage and monitor reserved instance inventory</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
+            <span className="bg-gradient-to-r from-[#29B5E8] via-[#7DD3FC] to-white bg-clip-text text-transparent">
+              Reservations
+            </span>
+          </h1>
+          <p className="text-gray-400 mt-2 text-lg">Manage and monitor reserved instance inventory</p>
+        </div>
+        <button
+          onClick={() => router.push('/request?tab=create&type=RESERVATION_CREATE')}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white text-sm font-medium shadow-lg shadow-[#29B5E8]/20 hover:shadow-[#29B5E8]/40 transition-all whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4" />
+          Create Reservation
+        </button>
       </div>
 
       {/* Filter Bar */}
@@ -97,6 +110,7 @@ export default function Reservation() {
       </div>
 
       {/* Tab Content */}
+      {activeTab === 'overview' && <OverviewTab data={filteredData} />}
       {activeTab === 'detail' && <ReservationDetailTab data={filteredData} />}
       {activeTab === 'request' && <ReservationRequestTab />}
     </div>

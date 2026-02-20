@@ -28,6 +28,7 @@ func RegisterRoutes(r *gin.Engine, h *handlers.Handler) {
 	// ─── Quota ──────────────────────────────────────────────
 	quota := api.Group("/quota")
 	{
+		quota.GET("/overview", h.QuotaOverview)
 		quota.GET("/filters", h.QuotaFilters)
 		quota.GET("/current-usage", h.CurrentUsage)
 		quota.GET("/adjustments", h.QuotaAdjustments)

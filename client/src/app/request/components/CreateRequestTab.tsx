@@ -4,7 +4,6 @@ import { useState } from 'react';
 import type {
   RequestForm,
   CapacityPlanEntry,
-  RampUpPlan,
   BackupPlan,
   ReservationPayload,
   QuotaPayload,
@@ -26,17 +25,19 @@ import StepCapacityBlockDetails from './StepCapacityBlockDetails';
 import StepReview from './StepReview';
 import WizardNavigation from './WizardNavigation';
 
-export default function CreateRequestTab() {
+export default function CreateRequestTab({ initialType = '' }: { initialType?: string }) {
   const [step, setStep] = useState(1);
   const [knowsSubscription, setKnowsSubscription] = useState(true);
   const [subSearch, setSubSearch] = useState('');
 
   // Shared envelope form
-  const [form, setForm] = useState<RequestForm>({ ...INITIAL_FORM });
+  const [form, setForm] = useState<RequestForm>({
+    ...INITIAL_FORM,
+    ...(initialType ? { requestType: initialType } : {}),
+  });
 
   // On-demand capacity plans
   const [capacityPlans, setCapacityPlans] = useState<CapacityPlanEntry[]>([]);
-  const [rampUpPlans, setRampUpPlans] = useState<RampUpPlan[]>([]);
   const [backupPlans, setBackupPlans] = useState<BackupPlan[]>([]);
 
   // Type-specific payloads
@@ -87,8 +88,6 @@ export default function CreateRequestTab() {
           <StepCapacityPlans
             capacityPlans={capacityPlans}
             setCapacityPlans={setCapacityPlans}
-            rampUpPlans={rampUpPlans}
-            setRampUpPlans={setRampUpPlans}
             backupPlans={backupPlans}
             setBackupPlans={setBackupPlans}
           />
@@ -121,7 +120,6 @@ export default function CreateRequestTab() {
             setForm={setForm}
             knowsSubscription={knowsSubscription}
             capacityPlans={capacityPlans}
-            rampUpPlans={rampUpPlans}
             backupPlans={backupPlans}
             reservationPayload={reservationPayload}
             quotaPayload={quotaPayload}

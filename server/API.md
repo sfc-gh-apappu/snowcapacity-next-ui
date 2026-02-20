@@ -294,6 +294,116 @@ Returns filtered quota adjustment records joined with usage data from
 
 ---
 
+### `GET /api/quota/overview`
+
+Returns the full quota overview dataset in a single call. Pre-computed
+aggregations (`kpis`, `charts`, `atRiskQuotas`) power the initial render.
+Raw arrays (`quotas`, `adjustments`) are always unfiltered so the frontend
+can recompute aggregations client-side on filter change without additional
+backend requests.
+
+**Query params:** _none_ (called once on page load, all filtering is client-side)
+
+**Response:**
+
+```json
+{
+  "data": {
+    "kpis": {
+      "totalQuotas": 142,
+      "critical": 0,
+      "openTickets": 0,
+      "failedIncreases": 0,
+      "recentAdjustments30d": 10,
+      "criticalQuotas": [
+        { "quotaName": "standardEASv5Family", "usagePct": 95.2 }
+      ]
+    },
+    "charts": {
+      "usageTrend": [
+        { "usageDate": "2026-02-20", "maxUsagePct": 57.14, "avgUsagePct": 5.64 }
+      ],
+      "topQuotasByUsage": [
+        {
+          "quotaName": "standardEASv5Family",
+          "usagePct": 57.14,
+          "currentUsage": 200,
+          "quotaLimit": 350
+        }
+      ]
+    },
+    "atRiskQuotas": [
+      {
+        "quotaName": "standardEASv5Family",
+        "region": "eastus2",
+        "currentUsage": 200,
+        "quotaLimit": 350,
+        "usagePct": 85.0,
+        "hasOpenTicket": false,
+        "hasPendingAdjustment": true,
+        "lastUpdated": "2026-02-20 17:24:17.700"
+      }
+    ],
+    "quotas": [
+      {
+        "region": "eastus2",
+        "tenantId": "d479c7c9-...",
+        "subscriptionId": "176bfaa5-...",
+        "subscriptionName": "azpreprod4 - snowservices",
+        "instanceType": "standardEASv5Family",
+        "quotaName": "standardEASv5Family",
+        "currentUsage": 200,
+        "quotaLimit": 350,
+        "usagePct": 57.14,
+        "lastUpdated": "2026-02-20 17:24:17.700"
+      }
+    ],
+    "adjustments": [
+      {
+        "quotaName": "standardDLSv5Family",
+        "region": "eastus2",
+        "tenantId": "d479c7c9-...",
+        "subscriptionId": "d6197f31-...",
+        "instanceType": "standardDLSv5Family",
+        "requestStatus": "Completed",
+        "cspSupportRequestId": "",
+        "createdAt": "2026-02-20 06:41:41.206"
+      }
+    ]
+  }
+}
+```
+
+**Pre-computed fields (server-side, unfiltered):**
+
+| Field | Source | Description |
+|---|---|---|
+| `kpis.totalQuotas` | `AZURE_QUOTA_USAGE` (last 24h) | Total distinct quota entries |
+| `kpis.critical` | `AZURE_QUOTA_USAGE` (last 24h) | Count of quotas at >= 90% usage |
+| `kpis.openTickets` | `AZURE_QUOTA_ADJUSTMENTS` (last 30d) | Adjustments with a CSP ticket still in-progress |
+| `kpis.failedIncreases` | `AZURE_QUOTA_ADJUSTMENTS` (last 30d) | Adjustments that ended in failed/timedout |
+| `kpis.recentAdjustments30d` | `AZURE_QUOTA_ADJUSTMENTS` (last 30d) | Total adjustments in last 30 days |
+| `kpis.criticalQuotas` | `AZURE_QUOTA_USAGE` (last 24h) | List of quotas at >= 90% (chip strip) |
+| `charts.usageTrend` | `AZURE_QUOTA_USAGE` (last 90d) | Daily max/avg usage % for the line chart |
+| `charts.topQuotasByUsage` | `AZURE_QUOTA_USAGE` (last 24h) | Top 10 quotas by usage % for the bar chart |
+| `atRiskQuotas` | `AZURE_QUOTA_USAGE` + `AZURE_QUOTA_ADJUSTMENTS` | Quotas at >= 80% with open ticket / pending adjustment flags |
+
+**Raw arrays (always unfiltered, for client-side re-aggregation):**
+
+| Field | Source | Description |
+|---|---|---|
+| `quotas` | `AZURE_QUOTA_USAGE` (last 24h) | All quota rows with dimension columns |
+| `adjustments` | `AZURE_QUOTA_ADJUSTMENTS` (last 30d) | All adjustment rows with dimension columns |
+
+**Frontend usage pattern:**
+1. Call this endpoint once on page load (no filters). Cache with TanStack Query.
+2. Use the pre-computed `kpis`, `charts`, `atRiskQuotas` for the initial render.
+3. On filter change, use the cached `quotas` and `adjustments` arrays with
+   `useMemo` to recompute KPI counts, top 10, at-risk rows, etc. client-side.
+   No additional backend requests needed.
+
+---
+
 ## Home
 
 _No endpoints yet._

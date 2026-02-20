@@ -1,45 +1,76 @@
-/* ─── Filter Options ─── */
+/* ─── Backend Response Types (GET /api/quota/overview) ─── */
 
-export const CLOUD_PROVIDERS = ['All', 'Azure', 'AWS', 'GCP'] as const;
+export interface QuotaOverviewResponse {
+  kpis: OverviewKPIs;
+  charts: OverviewCharts;
+  atRiskQuotas: AtRiskQuotaRow[];
+  quotas: OverviewQuotaRow[];
+  adjustments: OverviewAdjustmentRow[];
+}
 
-export const REGIONS: Record<string, string[]> = {
-  All: ['All Regions', 'West US 2', 'East US', 'Central US', 'West Europe', 'us-east-1', 'us-west-2', 'eu-west-1', 'us-central1', 'europe-west1'],
-  Azure: ['All Regions', 'West US 2', 'East US', 'Central US', 'West Europe', 'North Europe', 'Southeast Asia'],
-  AWS: ['All Regions', 'us-east-1', 'us-west-2', 'us-east-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1'],
-  GCP: ['All Regions', 'us-central1', 'us-east1', 'europe-west1', 'europe-west3', 'asia-east1'],
-};
+export interface OverviewKPIs {
+  totalQuotas: number;
+  critical: number;
+  openTickets: number;
+  failedIncreases: number;
+  recentAdjustments30d: number;
+  criticalQuotas: { quotaName: string; usagePct: number }[];
+}
 
-export const TENANT_IDS = [
-  { id: 'all', label: 'All Tenants' },
-  { id: 'tenant-sf-prod', label: 'SF-PROD-001' },
-  { id: 'tenant-sf-dev', label: 'SF-DEV-002' },
-  { id: 'tenant-sf-stg', label: 'SF-STG-003' },
-];
+export interface OverviewCharts {
+  usageTrend: UsageTrendPoint[];
+  topQuotasByUsage: TopQuotaBar[];
+}
 
-export const SUBSCRIPTIONS = [
-  { id: 'all', label: 'All Subscriptions' },
-  { id: 'sub-prod-data', label: 'Prod - Data Platform' },
-  { id: 'sub-dev-eng', label: 'Dev - Engineering' },
-  { id: 'sub-stg-analytics', label: 'Staging - Analytics' },
-  { id: 'sub-prod-ml', label: 'Prod - ML Workloads' },
-];
+export interface UsageTrendPoint {
+  usageDate: string;
+  maxUsagePct: number;
+  avgUsagePct: number;
+}
 
-export const INSTANCE_TYPES = [
-  'All Types',
-  'Standard_DSv3',
-  'Standard_ESv3',
-  'Standard_NCSv3',
-  'Standard_NDSv2',
-  'Standard_FSv2',
-  'Public IP',
-  'Load Balancer',
-  'Storage Account',
-  'Network Security Group',
-  'Managed Disk',
-  'Virtual Network',
-];
+export interface TopQuotaBar {
+  quotaName: string;
+  usagePct: number;
+  currentUsage: number;
+  quotaLimit: number;
+}
 
-/* ─── Types ─── */
+export interface OverviewQuotaRow {
+  region: string;
+  tenantId: string;
+  subscriptionId: string;
+  subscriptionName: string;
+  instanceType: string;
+  quotaName: string;
+  currentUsage: number;
+  quotaLimit: number;
+  usagePct: number;
+  lastUpdated: string;
+}
+
+export interface OverviewAdjustmentRow {
+  quotaName: string;
+  region: string;
+  tenantId: string;
+  subscriptionId: string;
+  instanceType: string;
+  requestStatus: string;
+  cspSupportRequestId: string;
+  createdAt: string;
+}
+
+export interface AtRiskQuotaRow {
+  quotaName: string;
+  region: string;
+  currentUsage: number;
+  quotaLimit: number;
+  usagePct: number;
+  hasOpenTicket: boolean;
+  hasPendingAdjustment: boolean;
+  lastUpdated: string;
+}
+
+/* ─── Legacy Types (used by other tabs still on mock data) ─── */
 
 export type QuotaUsageItem = {
   id: string;
@@ -55,6 +86,32 @@ export type QuotaUsageItem = {
   tenantId: string;
 };
 
+export interface QuotaAdjustmentRow {
+  id: string;
+  quotaId: string;
+  region: string;
+  tenantId: string;
+  subscriptionId: string;
+  subscriptionName: string;
+  instanceType: string;
+  quotaName: string;
+  limitBeforeAdjustment: number;
+  requestedNewLimit: number;
+  usagePercent: number;
+  unit: string;
+  requestStatus: string;
+  cspSupportRequestId: string;
+  cspSupportRequestTimestamp: string;
+  lastAdjustmentStatusCheck: string;
+  statusCheckCount: number;
+  justification: string;
+  message: string;
+  createdAt: string;
+  lastUpdated: string;
+  requestor: string;
+}
+
+/** @deprecated kept for SupportCasesTab mock data */
 export type QuotaAdjustment = {
   id: string;
   region: string;
@@ -73,22 +130,8 @@ export type QuotaAdjustment = {
   cloud: string;
 };
 
-export type SupportCase = {
-  id: string;
-  region: string;
-  supportId: string;
-  subscriptionName: string;
-  subscriptionId: string;
-  quotaName: string;
-  created: string;
-  currentLimit: number;
-  requested: number;
-  usagePct: number;
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
-  requestor: string;
-  lastUpdated: string;
-  cloud: string;
-};
+/** @deprecated Support cases are now derived from QuotaAdjustmentRow with non-empty cspSupportRequestId */
+export type SupportCase = QuotaAdjustmentRow;
 
 /* ─── Mock Data: Current Usage ─── */
 
@@ -118,29 +161,66 @@ export const QUOTA_ADJUSTMENTS_DATA: QuotaAdjustment[] = [
   { id: 'QA-006', region: 'West US 2', subscriptionName: 'Prod - ML Workloads', subscriptionId: '8947eb99-e866-4196-9e24-bb37c457b532', quotaName: 'Standard NCSv3 Family vCPUs', instanceType: 'Standard_NCSv3', usage: 95, limit: 100, currentLimit: 100, requested: 250, usagePct: 95, status: 'pending', created: '2026-02-14', lastUpdated: '2026-02-16 22:36:09', cloud: 'Azure' },
 ];
 
-/* ─── Mock Data: Support Cases ─── */
 
-export const SUPPORT_CASES_DATA: SupportCase[] = [
-  { id: 'sc-01', region: 'West US 2', supportId: 'SC-1234', subscriptionName: 'Prod - Data Platform', subscriptionId: '7271eb33-371d-4b48-9971-4fa884a9151a', quotaName: 'Standard DSv3 Family vCPUs', created: '2026-02-14 08:22:10', currentLimit: 100, requested: 200, usagePct: 85, status: 'open', requestor: 'Automated Adjustment', lastUpdated: '2026-02-15 14:30:22', cloud: 'Azure' },
-  { id: 'sc-02', region: 'West US 2', supportId: 'SC-1235', subscriptionName: 'Prod - ML Workloads', subscriptionId: '8947eb99-e866-4196-9e24-bb37c457b532', quotaName: 'Standard NCSv3 Family vCPUs', created: '2026-02-13 10:15:45', currentLimit: 100, requested: 250, usagePct: 95, status: 'in-progress', requestor: 'Automated Adjustment', lastUpdated: '2026-02-16 22:39:58', cloud: 'Azure' },
-  { id: 'sc-03', region: 'West US 2', supportId: 'SC-1236', subscriptionName: 'Prod - Data Platform', subscriptionId: '7271eb33-371d-4b48-9971-4fa884a9151a', quotaName: 'Public IP Addresses', created: '2026-02-10 15:44:31', currentLimit: 20, requested: 50, usagePct: 90, status: 'open', requestor: 'John Doe', lastUpdated: '2026-02-10 15:44:31', cloud: 'Azure' },
-  { id: 'sc-04', region: 'East US', supportId: 'SC-1237', subscriptionName: 'Staging - Analytics', subscriptionId: 'a5b6c7d8-e9f0-1234-5678-9abcdef01234', quotaName: 'Standard Storage Accounts', created: '2026-02-01 09:12:08', currentLimit: 250, requested: 500, usagePct: 48, status: 'resolved', requestor: 'Jane Smith', lastUpdated: '2026-02-05 17:55:43', cloud: 'Azure' },
-  { id: 'sc-05', region: 'East US', supportId: 'SC-1238', subscriptionName: 'Dev - Engineering', subscriptionId: '3c9a1f2e-8b7d-4e6a-af12-d34567890abc', quotaName: 'Network Security Groups', created: '2026-01-20 11:30:00', currentLimit: 100, requested: 200, usagePct: 90, status: 'closed', requestor: 'Automated Adjustment', lastUpdated: '2026-01-25 08:22:15', cloud: 'Azure' },
+/* ─── Mock Data: Historical Usage (time-series for charts) ─── */
+
+export type HistoricalUsagePoint = {
+  date: string;
+  quotaName: string;
+  usagePct: number;
+};
+
+function generateHistory(quotaName: string, basePct: number, variance: number): HistoricalUsagePoint[] {
+  const points: HistoricalUsagePoint[] = [];
+  const now = new Date('2026-02-16');
+  for (let i = 90; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const drift = (90 - i) * (variance / 90);
+    const noise = (Math.sin(i * 0.7) * variance * 0.4);
+    const pct = Math.max(0, Math.min(100, basePct - variance + drift + noise));
+    points.push({
+      date: d.toISOString().slice(0, 10),
+      quotaName,
+      usagePct: Math.round(pct * 10) / 10,
+    });
+  }
+  return points;
+}
+
+export const HISTORICAL_USAGE_DATA: HistoricalUsagePoint[] = [
+  ...generateHistory('Standard NCSv3 Family vCPUs', 95, 15),
+  ...generateHistory('Network Security Groups', 90, 12),
+  ...generateHistory('Public IP Addresses', 90, 10),
+  ...generateHistory('Standard DSv3 Family vCPUs', 85, 18),
+  ...generateHistory('Managed Disks', 80, 14),
 ];
+
+export const TICKET_URL_PATTERN = 'https://portal.azure.com/#view/Microsoft_Azure_Support/SupportRequestDetailBlade/srId/';
 
 /* ─── Status Styles ─── */
 
 export const ADJUSTMENT_STATUS_STYLES: Record<string, string> = {
-  approved: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-  'in-review': 'bg-[#29B5E8]/10 text-[#29B5E8] border-[#29B5E8]/30',
-  denied: 'bg-red-500/10 text-red-400 border-red-500/30',
+  completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  submitted: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  active: 'bg-[#29B5E8]/10 text-[#29B5E8] border-[#29B5E8]/30',
+  inprogress: 'bg-[#29B5E8]/10 text-[#29B5E8] border-[#29B5E8]/30',
+  partiallycompleted: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  failed: 'bg-red-500/10 text-red-400 border-red-500/30',
+  timedout: 'bg-red-500/10 text-red-400 border-red-500/30',
 };
 
-export const CASE_STATUS_STYLES: Record<string, string> = {
-  open: 'bg-[#29B5E8]/10 text-[#29B5E8] border-[#29B5E8]/30',
-  'in-progress': 'bg-violet-500/10 text-violet-400 border-violet-500/30',
-  resolved: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  closed: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
-  active: 'bg-[#29B5E8]/10 text-[#29B5E8] border-[#29B5E8]/30',
-};
+export function getAdjustmentStatusStyle(status: string): string {
+  return ADJUSTMENT_STATUS_STYLES[status.toLowerCase()] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+}
+
+export type AdjustmentStatusGroup = 'all' | 'completed' | 'in-progress' | 'failed';
+
+export function getStatusGroup(status: string): AdjustmentStatusGroup {
+  const s = status.toLowerCase();
+  if (s === 'completed') return 'completed';
+  if (['submitted', 'active', 'inprogress', 'partiallycompleted'].includes(s)) return 'in-progress';
+  if (['failed', 'timedout'].includes(s)) return 'failed';
+  return 'all';
+}
+

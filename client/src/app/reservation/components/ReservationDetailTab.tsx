@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Layers, Server, ServerOff, DollarSign } from 'lucide-react';
-import CountUp from '@/components/CountUp';
+import { useState, useMemo } from 'react';
+import { Search, Check, XCircle, X } from 'lucide-react';
 import { useSortableData, SortHeader } from '@/components/SortableTable';
 import type { ReservationDetail } from '../constants';
 import { STATE_STYLES } from '../constants';
@@ -29,6 +28,7 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ReservationDetail | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const searched = data.filter((item) =>
     item.reservationId.toLowerCase().includes(search.toLowerCase()) ||
@@ -38,57 +38,29 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
 
   const { sorted: filtered, sort, toggle } = useSortableData(searched);
 
-  const totalReservations = filtered.length;
-  const totalInstances = filtered.reduce((sum, r) => sum + r.totalInstanceCount, 0);
-  const totalUsedInstances = filtered.reduce((sum, r) => sum + r.usedInstanceCount, 0);
-  const totalUnusedInstances = filtered.reduce((sum, r) => sum + r.availableInstanceCount, 0);
-  const totalUnusedSpend = filtered.reduce((sum, r) => {
-    if (r.totalInstanceCount === 0) return sum;
-    const unusedRatio = r.availableInstanceCount / r.totalInstanceCount;
-    return sum + (r.monthlyRate * unusedRatio);
-  }, 0);
+  const activeIds = useMemo(() => new Set(filtered.filter((r) => r.state === 'active').map((r) => r.id)), [filtered]);
+
+  const allActiveChecked = activeIds.size > 0 && [...activeIds].every((id) => checkedIds.has(id));
+  const someChecked = checkedIds.size > 0;
+
+  const toggleAll = () => {
+    if (allActiveChecked) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(activeIds));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <SummaryCard
-          icon={<Layers className="w-5 h-5 text-[#29B5E8]" />}
-          label="Total Reservations"
-          value={<CountUp end={totalReservations} />}
-          accent="border-[#29B5E8]/30 hover:border-[#29B5E8]/50"
-          bgGlow="from-[#29B5E8]/10"
-        />
-        <SummaryCard
-          icon={<Server className="w-5 h-5 text-emerald-400" />}
-          label="Total Instances"
-          value={<CountUp end={totalInstances} />}
-          accent="border-emerald-500/30 hover:border-emerald-500/50"
-          bgGlow="from-emerald-500/10"
-        />
-        <SummaryCard
-          icon={<Server className="w-5 h-5 text-violet-400" />}
-          label="Used Instances"
-          value={<CountUp end={totalUsedInstances} />}
-          accent="border-violet-500/30 hover:border-violet-500/50"
-          bgGlow="from-violet-500/10"
-        />
-        <SummaryCard
-          icon={<ServerOff className="w-5 h-5 text-yellow-400" />}
-          label="Unused Instances"
-          value={<CountUp end={totalUnusedInstances} />}
-          accent="border-yellow-500/30 hover:border-yellow-500/50"
-          bgGlow="from-yellow-500/10"
-        />
-        <SummaryCard
-          icon={<DollarSign className="w-5 h-5 text-red-400" />}
-          label="Unused Spend"
-          value={<><CountUp end={Math.round(totalUnusedSpend)} prefix="$" />/mo</>}
-          accent="border-red-500/30 hover:border-red-500/50"
-          bgGlow="from-red-500/10"
-        />
-      </div>
-
       {/* Search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <p className="text-sm text-gray-500">{filtered.length} reservation{filtered.length !== 1 ? 's' : ''}</p>
@@ -110,6 +82,15 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
           <table className="w-full">
             <thead className="bg-black/50 border-b border-[#1a1a1a]">
               <tr>
+                <th className="px-3 py-4 w-10">
+                  <button onClick={toggleAll} className="flex items-center justify-center">
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                      allActiveChecked ? 'bg-[#29B5E8] border-[#29B5E8]' : 'border-[#3a3a3a] hover:border-[#555]'
+                    }`}>
+                      {allActiveChecked && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+                </th>
                 <SortHeader label="AWS Reservation ID" sortKey="reservationId" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Account Name" sortKey="accountName" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Type" sortKey="reservationType" currentSort={sort} onSort={toggle} />
@@ -126,12 +107,27 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
             <tbody className="divide-y divide-[#1a1a1a]">
               {filtered.map((item) => {
                 const pct = getUsagePct(item.totalInstanceCount, item.availableInstanceCount);
+                const isActive = item.state === 'active';
+                const isChecked = checkedIds.has(item.id);
                 return (
                   <tr
                     key={item.id}
                     onClick={() => setSelected(item)}
-                    className="table-row-hover cursor-pointer"
+                    className={`table-row-hover cursor-pointer ${isChecked ? 'bg-[#29B5E8]/5' : ''}`}
                   >
+                    <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
+                      {isActive ? (
+                        <button onClick={() => toggleOne(item.id)} className="flex items-center justify-center">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                            isChecked ? 'bg-[#29B5E8] border-[#29B5E8]' : 'border-[#3a3a3a] hover:border-[#555]'
+                          }`}>
+                            {isChecked && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="w-4 h-4" />
+                      )}
+                    </td>
                     <td className="px-5 py-4">
                       <span className="text-xs font-mono text-[#29B5E8]">{item.reservationId}</span>
                     </td>
@@ -172,8 +168,8 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
                         {formatState(item.state)}
                       </span>
                     </td>
-                    <td className="px-3 py-4">
-                      {item.state === 'active' && (
+                    <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
+                      {isActive && (
                         <ActionsDropdown onAction={(a) => setPendingAction(a)} />
                       )}
                     </td>
@@ -182,7 +178,7 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-5 py-12 text-center text-gray-500 text-sm">
+                  <td colSpan={12} className="px-5 py-12 text-center text-gray-500 text-sm">
                     No reservations match the current filters
                   </td>
                 </tr>
@@ -192,36 +188,31 @@ export default function ReservationDetailTab({ data }: { data: ReservationDetail
         </div>
       </div>
 
+      {/* Floating Bulk Action Bar */}
+      {someChecked && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl shadow-2xl shadow-black/60 backdrop-blur-md">
+          <span className="text-sm text-white font-medium tabular-nums">{checkedIds.size} selected</span>
+          <div className="w-px h-5 bg-[#2a2a2a]" />
+          <button
+            onClick={() => setPendingAction('bulk-cancel')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Cancel Selected
+          </button>
+          <button
+            onClick={() => setCheckedIds(new Set())}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 text-sm font-medium hover:text-white hover:border-[#3a3a3a] transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Modals */}
       <ReservationDetailModal item={selected} onClose={() => setSelected(null)} />
       <ActionUnavailableModal action={pendingAction} onClose={() => setPendingAction(null)} />
-    </div>
-  );
-}
-
-/* ─── Summary Card ─── */
-
-function SummaryCard({
-  icon, label, value, accent, bgGlow,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  accent: string;
-  bgGlow: string;
-}) {
-  return (
-    <div className={`relative group bg-[#0a0a0a] rounded-2xl p-5 border ${accent} transition-all duration-300 overflow-hidden`}>
-      <div className={`absolute inset-0 bg-gradient-to-br ${bgGlow} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-black/50 border border-[#1a1a1a]">
-            {icon}
-          </div>
-          <p className="text-sm text-gray-400 font-medium">{label}</p>
-        </div>
-        <p className="text-2xl font-bold text-white">{value}</p>
-      </div>
     </div>
   );
 }

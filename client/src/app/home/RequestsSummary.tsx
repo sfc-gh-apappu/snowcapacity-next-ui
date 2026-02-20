@@ -124,12 +124,12 @@ export function ActivityFeed() {
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white font-medium leading-tight">{a.action}</p>
-                <p className="text-[10px] text-gray-600 mt-0.5 truncate">{a.detail}</p>
+                <p className="text-sm text-white font-medium leading-tight">{a.action}</p>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">{a.detail}</p>
               </div>
 
               {/* Time */}
-              <span className="text-[10px] text-gray-600 whitespace-nowrap flex-shrink-0 tabular-nums mt-0.5">
+              <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0 tabular-nums mt-0.5">
                 {a.time}
               </span>
             </div>

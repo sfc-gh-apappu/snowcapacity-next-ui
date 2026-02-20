@@ -142,6 +142,8 @@ export type RequestForm = {
   environment: string;
   deployment: string;
   availabilityZone: string;
+  snowflakeDeployment: string;
+  snowflakeCluster: string;
   financeApproval: boolean;
   notes: string;
 };
@@ -178,6 +180,13 @@ export type CapacityBlockPayload = {
   estimatedCost: string;
 };
 
+export type RampUpStage = {
+  id: string;
+  date: string;
+  minCount: string;
+  maxCount: string;
+};
+
 export type CapacityPlanEntry = {
   id: string;
   instanceType: string;
@@ -186,8 +195,10 @@ export type CapacityPlanEntry = {
   minCount: string;
   maxCount: string;
   isCollapsed: boolean;
+  rampUpStages: RampUpStage[];
 };
 
+/** @deprecated Use RampUpStage nested inside CapacityPlanEntry instead */
 export type RampUpPlan = {
   id: string;
   date: string;
@@ -209,8 +220,12 @@ export type BackupPlan = {
 
 /* ─── Factory Helpers ─── */
 
+export const createRampUpStage = (): RampUpStage => ({
+  id: crypto.randomUUID(), date: '', minCount: '', maxCount: '',
+});
+
 export const createCapacityPlan = (): CapacityPlanEntry => ({
-  id: crypto.randomUUID(), instanceType: '', date: '', availabilityZone: '', minCount: '', maxCount: '', isCollapsed: false,
+  id: crypto.randomUUID(), instanceType: '', date: '', availabilityZone: '', minCount: '', maxCount: '', isCollapsed: false, rampUpStages: [],
 });
 
 export const createRampUpPlan = (): RampUpPlan => ({
@@ -239,7 +254,8 @@ export const createCapacityBlockPayload = (): CapacityBlockPayload => ({
 
 export const INITIAL_FORM: RequestForm = {
   requestType: '', team: '', cloudProvider: '', region: '', subscriptionId: '', accountName: '',
-  environment: '', deployment: '', availabilityZone: '', financeApproval: false, notes: '',
+  environment: '', deployment: '', availabilityZone: '', snowflakeDeployment: '', snowflakeCluster: '',
+  financeApproval: false, notes: '',
 };
 
 /* ─── Status helpers (shared by My Requests & View Requests) ─── */

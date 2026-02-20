@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
-import { Search, Check, MapPin, Building2, Navigation } from 'lucide-react';
+import { Search, Check, MapPin, Building2, Navigation, ChevronDown, Snowflake } from 'lucide-react';
 import {
   CLOUD_PROVIDERS,
   REGIONS_BY_PROVIDER,
@@ -253,6 +254,54 @@ export default function StepWhere({
           </div>
         )}
       </div>
+
+      {/* Snowflake Target — on-demand only */}
+      {isOnDemand && <SnowflakeTarget form={form} setForm={setForm} />}
+    </div>
+  );
+}
+
+
+function SnowflakeTarget({ form, setForm }: { form: RequestForm; setForm: (f: RequestForm) => void }) {
+  const [open, setOpen] = useState(form.snowflakeDeployment !== '' || form.snowflakeCluster !== '');
+
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors group"
+      >
+        <Snowflake className="w-4 h-4 text-[#29B5E8]" />
+        Snowflake Target
+        <span className="text-[10px] text-gray-600 ml-1">optional</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-[#29B5E8]/20">
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Snowflake Deployment</label>
+            <input
+              type="text"
+              value={form.snowflakeDeployment}
+              onChange={(e) => setForm({ ...form, snowflakeDeployment: e.target.value })}
+              placeholder="e.g. us-west-2.aws"
+              className="w-full px-4 py-2.5 bg-black border border-[#1a1a1a] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#29B5E8] focus:border-transparent transition-all text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">Snowflake Cluster</label>
+            <input
+              type="text"
+              value={form.snowflakeCluster}
+              onChange={(e) => setForm({ ...form, snowflakeCluster: e.target.value })}
+              placeholder="e.g. my-wh-cluster-01"
+              className="w-full px-4 py-2.5 bg-black border border-[#1a1a1a] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#29B5E8] focus:border-transparent transition-all text-sm"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

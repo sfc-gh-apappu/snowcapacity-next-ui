@@ -1,27 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { BarChart3, Table2, Code2, ChevronDown } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronDown, TrendingUp, Activity, ArrowUpRight, Shield } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import PageTransition from '@/components/PageTransition';
+import CountUp from '@/components/CountUp';
 import {
   CLOUD_PROVIDERS, VIEW_TYPES, PRODUCTS, REGIONS, DEPLOYMENTS,
-  WAREHOUSE_TYPES, DEMAND_METRICS,
+  WAREHOUSE_TYPES, DEMAND_METRICS, DEMAND_DATA,
 } from './constants';
 import { DatePicker } from '@/components/ui/date-picker';
 import GraphViewTab from './components/GraphViewTab';
-import TabularViewTab from './components/TabularViewTab';
-import QueryViewTab from './components/QueryViewTab';
-
-const tabs = [
-  { id: 'graph', label: 'Graph View', icon: BarChart3 },
-  { id: 'tabular', label: 'Tabular View', icon: Table2 },
-  { id: 'query', label: 'Query View', icon: Code2 },
-];
 
 export default function CapacityOverview() {
-  const [activeTab, setActiveTab] = useState('graph');
-
   const [cloud, setCloud] = useState<string>('Azure');
   const [viewType, setViewType] = useState<string>('All');
   const [product, setProduct] = useState<string>('Snowpark');
@@ -33,6 +24,18 @@ export default function CapacityOverview() {
   const [metric, setMetric] = useState<string>('Maximum');
 
   const filters = { cloud, viewType, product, region, deployment, warehouseType, fromDate, toDate, metric };
+
+  const kpis = useMemo(() => {
+    const hist = DEMAND_DATA.filter((d) => d.type === 'historical');
+    const fore = DEMAND_DATA.filter((d) => d.type === 'forecast');
+    const currentDemand = hist[hist.length - 1]?.totalDemand ?? 0;
+    const currentSupply = hist[hist.length - 1]?.supply ?? 0;
+    const forecastPeak = Math.max(...fore.map((d) => d.totalDemand), 0);
+    const earliest = hist[0]?.totalDemand ?? 0;
+    const growthRate = earliest > 0 ? ((currentDemand - earliest) / earliest) * 100 : 0;
+    const supplyHeadroom = currentSupply - currentDemand;
+    return { currentDemand, forecastPeak, growthRate: Math.round(growthRate * 10) / 10, supplyHeadroom };
+  }, []);
 
   return (
     <PageTransition>
@@ -71,36 +74,48 @@ export default function CapacityOverview() {
         </div>
       </FilterBar>
 
-      {/* Pill Tabs */}
-      <div className="flex items-center gap-1 p-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-fit max-w-full overflow-x-auto">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                relative flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition-all duration-300
-                ${isActive
-                  ? 'bg-gradient-to-r from-[#29B5E8] to-[#1E88B5] text-white shadow-lg shadow-[#29B5E8]/30'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
-                }
-              `}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KpiCard icon={<Activity className="w-5 h-5 text-[#29B5E8]" />} label="Current Demand" value={kpis.currentDemand} suffix="" accent="border-[#29B5E8]/30" glow="from-[#29B5E8]/10" />
+        <KpiCard icon={<TrendingUp className="w-5 h-5 text-violet-400" />} label="Forecast Peak" subtitle="Next 6mo" value={kpis.forecastPeak} suffix="" accent="border-violet-500/30" glow="from-violet-500/10" />
+        <KpiCard icon={<ArrowUpRight className="w-5 h-5 text-emerald-400" />} label="Growth Rate" value={kpis.growthRate} suffix="%" accent="border-emerald-500/30" glow="from-emerald-500/10" />
+        <KpiCard icon={<Shield className="w-5 h-5 text-amber-400" />} label="Supply Headroom" value={kpis.supplyHeadroom} suffix="" accent="border-amber-500/30" glow="from-amber-500/10" />
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'graph' && <GraphViewTab filters={filters} />}
-      {activeTab === 'tabular' && <TabularViewTab />}
-      {activeTab === 'query' && <QueryViewTab filters={filters} />}
+      {/* Charts */}
+      <GraphViewTab filters={filters} />
     </div>
     </PageTransition>
+  );
+}
+
+/* ─── KPI Card ─── */
+
+function KpiCard({ icon, label, subtitle, value, suffix, accent, glow }: {
+  icon: React.ReactNode;
+  label: string;
+  subtitle?: string;
+  value: number;
+  suffix: string;
+  accent: string;
+  glow: string;
+}) {
+  return (
+    <div className={`relative group bg-[#0a0a0a] rounded-2xl p-4 border ${accent} transition-all duration-300 overflow-hidden`}>
+      <div className={`absolute inset-0 bg-gradient-to-br ${glow} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="p-1.5 rounded-lg bg-black/50 border border-[#1a1a1a]">{icon}</div>
+          <div>
+            <p className="text-xs text-gray-400 font-medium">{label}</p>
+            {subtitle && <p className="text-[10px] text-gray-600">{subtitle}</p>}
+          </div>
+        </div>
+        <p className="text-2xl font-bold text-white tabular-nums">
+          <CountUp end={value} decimals={suffix === '%' ? 1 : 0} />{suffix && <span className="text-sm text-gray-400 ml-0.5">{suffix}</span>}
+        </p>
+      </div>
+    </div>
   );
 }
 

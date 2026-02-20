@@ -2,13 +2,9 @@
 
 import { Search } from 'lucide-react';
 import { useState } from 'react';
-import type { QuotaUsageItem } from '../constants';
+import type { OverviewQuotaRow } from '../constants';
 import QuotaDetailModal from './QuotaDetailModal';
 import { useSortableData, SortHeader } from '@/components/SortableTable';
-
-function getUsagePct(item: QuotaUsageItem) {
-  return Math.round((item.usage / item.limit) * 100);
-}
 
 function getBarColor(pct: number) {
   if (pct >= 90) return 'from-red-500 to-red-600';
@@ -24,18 +20,21 @@ function getPctColor(pct: number) {
   return 'text-emerald-400';
 }
 
-export default function CurrentUsageTab({ data }: { data: QuotaUsageItem[] }) {
+export default function CurrentUsageTab({ data }: { data: OverviewQuotaRow[] }) {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<QuotaUsageItem | null>(null);
+  const [selected, setSelected] = useState<OverviewQuotaRow | null>(null);
 
-  const filtered = data.filter((item) =>
-    item.quotaName.toLowerCase().includes(search.toLowerCase()) ||
-    item.instanceType.toLowerCase().includes(search.toLowerCase()) ||
-    item.region.toLowerCase().includes(search.toLowerCase()) ||
-    item.subscriptionName.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = data.filter((item) => {
+    const term = search.toLowerCase();
+    return (
+      item.quotaName.toLowerCase().includes(term) ||
+      item.instanceType.toLowerCase().includes(term) ||
+      item.region.toLowerCase().includes(term) ||
+      item.subscriptionName.toLowerCase().includes(term)
+    );
+  });
 
-  const { sorted, sort, toggle } = useSortableData(filtered, { key: 'usagePercent', direction: 'desc' });
+  const { sorted, sort, toggle } = useSortableData(filtered, { key: 'usagePct', direction: 'desc' });
 
   return (
     <div className="space-y-4">
@@ -62,20 +61,20 @@ export default function CurrentUsageTab({ data }: { data: QuotaUsageItem[] }) {
               <tr>
                 <SortHeader label="Instance Type" sortKey="instanceType" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Quota Name" sortKey="quotaName" currentSort={sort} onSort={toggle} />
-                <SortHeader label="Usage" sortKey="usage" currentSort={sort} onSort={toggle} align="right" />
-                <SortHeader label="Limit" sortKey="limit" currentSort={sort} onSort={toggle} align="right" />
-                <SortHeader label="Usage %" sortKey="usagePercent" currentSort={sort} onSort={toggle} />
+                <SortHeader label="Usage" sortKey="currentUsage" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Limit" sortKey="quotaLimit" currentSort={sort} onSort={toggle} align="right" />
+                <SortHeader label="Usage %" sortKey="usagePct" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Last Updated" sortKey="lastUpdated" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Region" sortKey="region" currentSort={sort} onSort={toggle} />
                 <SortHeader label="Subscription" sortKey="subscriptionName" currentSort={sort} onSort={toggle} />
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
-              {sorted.map((item) => {
-                const pct = getUsagePct(item);
+              {sorted.map((item, i) => {
+                const pct = item.usagePct;
                 return (
                   <tr
-                    key={item.id}
+                    key={`${item.quotaName}-${item.subscriptionId}-${i}`}
                     onClick={() => setSelected(item)}
                     className="table-row-hover cursor-pointer"
                   >
@@ -85,14 +84,14 @@ export default function CurrentUsageTab({ data }: { data: QuotaUsageItem[] }) {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-sm font-medium text-white">{item.quotaName}</td>
-                    <td className="px-5 py-4 text-sm text-white font-medium text-right tabular-nums">{item.usage}</td>
-                    <td className="px-5 py-4 text-sm text-gray-400 text-right tabular-nums">{item.limit}</td>
+                    <td className="px-5 py-4 text-sm text-white font-medium text-right tabular-nums">{item.currentUsage}</td>
+                    <td className="px-5 py-4 text-sm text-gray-400 text-right tabular-nums">{item.quotaLimit}</td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex-1 relative bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
                           <div
                             className={`h-full rounded-full bg-gradient-to-r ${getBarColor(pct)} transition-all duration-500`}
-                            style={{ width: `${pct}%` }}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
                           />
                         </div>
                         <span className={`text-xs font-bold w-10 text-right tabular-nums ${getPctColor(pct)}`}>{pct}%</span>

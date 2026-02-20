@@ -14,7 +14,6 @@ import {
 import type {
   RequestForm,
   CapacityPlanEntry,
-  RampUpPlan,
   BackupPlan,
   ReservationPayload,
   QuotaPayload,
@@ -26,7 +25,6 @@ interface StepReviewProps {
   setForm: (form: RequestForm) => void;
   knowsSubscription: boolean;
   capacityPlans: CapacityPlanEntry[];
-  rampUpPlans: RampUpPlan[];
   backupPlans: BackupPlan[];
   reservationPayload: ReservationPayload;
   quotaPayload: QuotaPayload;
@@ -38,7 +36,6 @@ export default function StepReview({
   setForm,
   knowsSubscription,
   capacityPlans,
-  rampUpPlans,
   backupPlans,
   reservationPayload,
   quotaPayload,
@@ -54,7 +51,7 @@ export default function StepReview({
   const isReservation = form.requestType === 'RESERVATION_CREATE';
   const isQuota = form.requestType === 'QUOTA_CREATE';
   const isCapacityBlock = form.requestType === 'CAPACITY_BLOCK_CREATE';
-  const hasPlans = capacityPlans.length > 0 || rampUpPlans.length > 0 || backupPlans.length > 0;
+  const hasPlans = capacityPlans.length > 0 || backupPlans.length > 0;
 
   return (
     <div className="relative z-10 space-y-6">
@@ -119,6 +116,12 @@ export default function StepReview({
               <ReviewField label="Deployment" value={form.deployment} />
             </>
           )}
+          {form.snowflakeDeployment && (
+            <ReviewField label="Snowflake Deployment" value={form.snowflakeDeployment} />
+          )}
+          {form.snowflakeCluster && (
+            <ReviewField label="Snowflake Cluster" value={form.snowflakeCluster} />
+          )}
         </div>
 
         {/* Section 3: Type-specific details */}
@@ -129,26 +132,33 @@ export default function StepReview({
         {isOnDemand && hasPlans && (
           <div className="space-y-4">
             {capacityPlans.length > 0 && (
-              <PlanList
-                title="Capacity Plans"
-                icon={<Zap className="w-3 h-3 text-white" />}
-                iconBg="from-[#29B5E8] to-[#1E88B5]"
-                items={capacityPlans.map((p, i) => ({
-                  label: p.instanceType || `Plan ${i + 1}`,
-                  detail: `${p.availabilityZone || '—'} · Min ${p.minCount || '—'} / Max ${p.maxCount || '—'}${p.date ? ` · ${p.date}` : ''}`,
-                }))}
-              />
-            )}
-            {rampUpPlans.length > 0 && (
-              <PlanList
-                title="Ramp Up Plans"
-                icon={<ArrowRight className="w-3 h-3 text-white" />}
-                iconBg="from-emerald-500 to-teal-600"
-                items={rampUpPlans.map((p, i) => ({
-                  label: `Ramp Up ${i + 1}`,
-                  detail: `${p.date || '—'} · Min ${p.minCount || '—'} / Max ${p.maxCount || '—'}`,
-                }))}
-              />
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Capacity Plans</p>
+                {capacityPlans.map((p, i) => (
+                  <div key={p.id} className="space-y-1">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0a0a0a] border border-[#1a1a1a]">
+                      <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#29B5E8] to-[#1E88B5]"><Zap className="w-3 h-3 text-white" /></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{p.instanceType || `Plan ${i + 1}`}</p>
+                        <p className="text-xs text-gray-500">{p.availabilityZone || '—'} · Min {p.minCount || '—'} / Max {p.maxCount || '—'}{p.date ? ` · ${p.date}` : ''}</p>
+                      </div>
+                    </div>
+                    {p.rampUpStages.length > 0 && (
+                      <div className="ml-8 space-y-1">
+                        {p.rampUpStages.map((s, sIdx) => (
+                          <div key={s.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#0a0a0a]/60 border border-emerald-500/10">
+                            <div className="p-1 rounded-md bg-emerald-500/20"><ArrowRight className="w-2.5 h-2.5 text-emerald-400" /></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-emerald-400">Stage {sIdx + 1}</p>
+                              <p className="text-[11px] text-gray-500">{s.date || '—'} · Min {s.minCount || '—'} / Max {s.maxCount || '—'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
             {backupPlans.length > 0 && (
               <PlanList

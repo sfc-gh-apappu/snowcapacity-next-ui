@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 
 	"snowcapacity-server/models"
 )
@@ -62,10 +64,19 @@ func (h *Handler) QuotaAdjustments(c *gin.Context) {
 // ─── Internal helpers ───────────────────────────────────────
 
 // buildQuotaWhereClauses builds optional WHERE clauses from the shared filter params.
+// cloudCol may be empty if the table has no cloud column.
 func buildQuotaWhereClauses(params models.QuotaQueryParams, regionCol, tenantCol, subCol, instanceCol string) ([]string, []interface{}) {
+	return buildQuotaWhereClausesWithCloud(params, "", regionCol, tenantCol, subCol, instanceCol)
+}
+
+func buildQuotaWhereClausesWithCloud(params models.QuotaQueryParams, cloudCol, regionCol, tenantCol, subCol, instanceCol string) ([]string, []interface{}) {
 	var clauses []string
 	var args []interface{}
 
+	if params.Cloud != "" && cloudCol != "" {
+		clauses = append(clauses, "LOWER("+cloudCol+") = LOWER(?)")
+		args = append(args, params.Cloud)
+	}
 	if params.Region != "" {
 		clauses = append(clauses, regionCol+" = ?")
 		args = append(args, params.Region)
@@ -291,4 +302,405 @@ func sortedKeys(m map[string]bool) []string {
 		}
 	}
 	return keys
+}
+
+// ─── Quota Overview ─────────────────────────────────────────
+
+// QuotaOverview returns the aggregated overview blob for the Quota Overview tab.
+func (h *Handler) QuotaOverview(c *gin.Context) {
+	models.MarkStart(c)
+
+	var params models.QuotaQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		models.Error(c, http.StatusBadRequest, models.ErrCodeValidation, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	var (
+		mu       sync.Mutex
+		response models.QuotaOverviewResponse
+	)
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	// Group 1: KPI counts + critical chips + top 10 bar chart (AZURE_QUOTA_USAGE, last 1 day)
+	g.Go(func() error {
+		kpiCounts, criticalChips, topBars, err := h.fetchOverviewSnapshot(gCtx, params)
+		if err != nil {
+			return fmt.Errorf("snapshot: %w", err)
+		}
+		mu.Lock()
+		response.KPIs.TotalQuotas = kpiCounts.TotalQuotas
+		response.KPIs.Critical = kpiCounts.Critical
+		response.KPIs.CriticalQuotas = criticalChips
+		response.Charts.TopQuotasByUsage = topBars
+		mu.Unlock()
+		return nil
+	})
+
+	// Group 2: 90-day usage trends (AZURE_QUOTA_USAGE)
+	g.Go(func() error {
+		trends, err := h.fetchOverviewTrends(gCtx, params)
+		if err != nil {
+			return fmt.Errorf("trends: %w", err)
+		}
+		mu.Lock()
+		response.Charts.UsageTrend = trends
+		mu.Unlock()
+		return nil
+	})
+
+	// Group 3: Adjustment stats + at-risk quotas (AZURE_QUOTA_ADJUSTMENTS + AZURE_QUOTA_USAGE)
+	g.Go(func() error {
+		adjStats, atRisk, err := h.fetchOverviewAdjustments(gCtx, params)
+		if err != nil {
+			return fmt.Errorf("adjustments: %w", err)
+		}
+		mu.Lock()
+		response.KPIs.OpenTickets = adjStats.OpenTickets
+		response.KPIs.FailedIncreases = adjStats.FailedIncreases
+		response.KPIs.RecentAdjustments30d = adjStats.RecentAdjustments30d
+		response.AtRiskQuotas = atRisk
+		mu.Unlock()
+		return nil
+	})
+
+	// Group 4: Raw quota rows (always unfiltered — for client-side re-aggregation)
+	g.Go(func() error {
+		rows, err := h.fetchOverviewQuotaRows(gCtx)
+		if err != nil {
+			return fmt.Errorf("raw quotas: %w", err)
+		}
+		mu.Lock()
+		response.Quotas = rows
+		mu.Unlock()
+		return nil
+	})
+
+	// Group 5: Raw adjustment rows (always unfiltered — for client-side re-aggregation)
+	g.Go(func() error {
+		rows, err := h.fetchOverviewAdjustmentRows(gCtx)
+		if err != nil {
+			return fmt.Errorf("raw adjustments: %w", err)
+		}
+		mu.Lock()
+		response.Adjustments = rows
+		mu.Unlock()
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		models.Error(c, http.StatusInternalServerError, models.ErrCodeQueryFailed, err.Error())
+		return
+	}
+
+	models.Success(c, response)
+}
+
+// snapshotCounts holds the aggregate counts from the snapshot query.
+type snapshotCounts struct {
+	TotalQuotas int
+	Critical    int
+}
+
+// adjStatCounts holds the aggregate adjustment statistics.
+type adjStatCounts struct {
+	RecentAdjustments30d int
+	OpenTickets          int
+	FailedIncreases      int
+}
+
+func (h *Handler) fetchOverviewSnapshot(ctx context.Context, params models.QuotaQueryParams) (snapshotCounts, []models.CriticalQuotaChip, []models.TopQuotaBar, error) {
+	clauses, args := buildQuotaWhereClauses(params, "REGION", "TENANT_ID", "SUBSCRIPTION_ID", "INSTANCE_TYPE")
+	clauses = append([]string{"LAST_UPDATED >= DATEADD(day, -1, CURRENT_TIMESTAMP())"}, clauses...)
+
+	whereSQL := " WHERE " + strings.Join(clauses, " AND ")
+
+	// Query A: KPI counts
+	countQuery := `
+		SELECT
+			COUNT(*)                        AS total_quotas,
+			COUNT_IF(USAGE_PERCENT >= 90)   AS critical_quotas
+		FROM AZURE_QUOTA_USAGE
+	` + whereSQL
+
+	var counts snapshotCounts
+	row := h.DB.QueryRowContext(ctx, countQuery, args...)
+	if err := row.Scan(&counts.TotalQuotas, &counts.Critical); err != nil {
+		return counts, nil, nil, fmt.Errorf("count query: %w", err)
+	}
+
+	// Query B: Critical chips (>= 90%)
+	chipQuery := `
+		SELECT
+			QUOTA_NAME,
+			ROUND(USAGE_PERCENT, 2) AS usage_pct
+		FROM AZURE_QUOTA_USAGE
+	` + whereSQL + ` AND USAGE_PERCENT >= 90 ORDER BY USAGE_PERCENT DESC`
+
+	chipRows, err := h.DB.QueryContext(ctx, chipQuery, args...)
+	if err != nil {
+		return counts, nil, nil, fmt.Errorf("critical chips query: %w", err)
+	}
+	defer chipRows.Close()
+
+	var chips []models.CriticalQuotaChip
+	for chipRows.Next() {
+		var c models.CriticalQuotaChip
+		if err := chipRows.Scan(&c.QuotaName, &c.UsagePct); err != nil {
+			return counts, nil, nil, fmt.Errorf("scan critical chip: %w", err)
+		}
+		chips = append(chips, c)
+	}
+	if err := chipRows.Err(); err != nil {
+		return counts, nil, nil, fmt.Errorf("critical chips rows: %w", err)
+	}
+	if chips == nil {
+		chips = []models.CriticalQuotaChip{}
+	}
+
+	// Query C: Top 10 quotas by usage
+	topQuery := `
+		SELECT
+			QUOTA_NAME,
+			ROUND(USAGE_PERCENT, 2) AS usage_pct,
+			CURRENT_USAGE,
+			QUOTA_LIMIT
+		FROM AZURE_QUOTA_USAGE
+	` + whereSQL + ` ORDER BY USAGE_PERCENT DESC LIMIT 10`
+
+	topRows, err := h.DB.QueryContext(ctx, topQuery, args...)
+	if err != nil {
+		return counts, chips, nil, fmt.Errorf("top quotas query: %w", err)
+	}
+	defer topRows.Close()
+
+	var bars []models.TopQuotaBar
+	for topRows.Next() {
+		var b models.TopQuotaBar
+		if err := topRows.Scan(&b.QuotaName, &b.UsagePct, &b.CurrentUsage, &b.QuotaLimit); err != nil {
+			return counts, chips, nil, fmt.Errorf("scan top quota: %w", err)
+		}
+		bars = append(bars, b)
+	}
+	if err := topRows.Err(); err != nil {
+		return counts, chips, nil, fmt.Errorf("top quotas rows: %w", err)
+	}
+	if bars == nil {
+		bars = []models.TopQuotaBar{}
+	}
+
+	return counts, chips, bars, nil
+}
+
+func (h *Handler) fetchOverviewTrends(ctx context.Context, params models.QuotaQueryParams) ([]models.UsageTrendPoint, error) {
+	clauses, args := buildQuotaWhereClauses(params, "REGION", "TENANT_ID", "SUBSCRIPTION_ID", "INSTANCE_TYPE")
+	clauses = append([]string{"LAST_UPDATED >= DATEADD(day, -90, CURRENT_TIMESTAMP())"}, clauses...)
+
+	whereSQL := " WHERE " + strings.Join(clauses, " AND ")
+
+	query := `
+		SELECT
+			TO_VARCHAR(DATE_TRUNC('day', LAST_UPDATED), 'YYYY-MM-DD') AS usage_date,
+			ROUND(MAX(USAGE_PERCENT), 2)                              AS max_usage_pct,
+			ROUND(AVG(USAGE_PERCENT), 2)                              AS avg_usage_pct
+		FROM AZURE_QUOTA_USAGE
+	` + whereSQL + `
+		GROUP BY DATE_TRUNC('day', LAST_UPDATED)
+		ORDER BY usage_date
+	`
+
+	rows, err := h.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("trends query: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.UsageTrendPoint
+	for rows.Next() {
+		var p models.UsageTrendPoint
+		if err := rows.Scan(&p.UsageDate, &p.MaxUsagePct, &p.AvgUsagePct); err != nil {
+			return nil, fmt.Errorf("scan trend point: %w", err)
+		}
+		results = append(results, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trends rows: %w", err)
+	}
+	if results == nil {
+		results = []models.UsageTrendPoint{}
+	}
+	return results, nil
+}
+
+func (h *Handler) fetchOverviewAdjustments(ctx context.Context, params models.QuotaQueryParams) (adjStatCounts, []models.AtRiskQuotaRow, error) {
+	var stats adjStatCounts
+
+	// --- Sub-query A: Adjustment KPI stats (last 30 days) ---
+	adjClauses, adjArgs := buildQuotaWhereClauses(params, "REGION", "TENANT_ID", "SUBSCRIPTION_ID", "INSTANCE_TYPE")
+	adjClauses = append([]string{"CREATED_AT >= DATEADD(day, -30, CURRENT_TIMESTAMP())"}, adjClauses...)
+	adjWhereSQL := " WHERE " + strings.Join(adjClauses, " AND ")
+
+	statsQuery := `
+		SELECT
+			COUNT(*)                                                                                               AS recent_adj_30d,
+			COUNT_IF(CSP_SUPPORT_REQUEST_ID IS NOT NULL
+				AND LOWER(REQUEST_STATUS) IN ('submitted','active','inprogress','partiallycompleted'))              AS open_tickets,
+			COUNT_IF(LOWER(REQUEST_STATUS) IN ('failed','timedout'))                                                AS failed_increases
+		FROM AZURE_QUOTA_ADJUSTMENTS
+	` + adjWhereSQL
+
+	row := h.DB.QueryRowContext(ctx, statsQuery, adjArgs...)
+	if err := row.Scan(&stats.RecentAdjustments30d, &stats.OpenTickets, &stats.FailedIncreases); err != nil {
+		return stats, nil, fmt.Errorf("adj stats query: %w", err)
+	}
+
+	// --- Sub-query B: At-risk quotas (>= 80%) with open-ticket / pending-adjustment flags ---
+	usageClauses, usageArgs := buildQuotaWhereClauses(params, "u.REGION", "u.TENANT_ID", "u.SUBSCRIPTION_ID", "u.INSTANCE_TYPE")
+	usageClauses = append([]string{
+		"u.LAST_UPDATED >= DATEADD(day, -1, CURRENT_TIMESTAMP())",
+		"u.USAGE_PERCENT >= 80",
+	}, usageClauses...)
+	usageWhereSQL := " WHERE " + strings.Join(usageClauses, " AND ")
+
+	atRiskQuery := `
+		SELECT
+			u.QUOTA_NAME,
+			u.REGION,
+			u.CURRENT_USAGE,
+			u.QUOTA_LIMIT,
+			ROUND(u.USAGE_PERCENT, 2) AS usage_pct,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM AZURE_QUOTA_ADJUSTMENTS a
+				WHERE a.QUOTA_NAME = u.QUOTA_NAME
+					AND a.SUBSCRIPTION_ID = u.SUBSCRIPTION_ID
+					AND a.CSP_SUPPORT_REQUEST_ID IS NOT NULL
+					AND LOWER(a.REQUEST_STATUS) IN ('submitted','active','inprogress','partiallycompleted')
+					AND a.CREATED_AT >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+			) THEN TRUE ELSE FALSE END AS has_open_ticket,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM AZURE_QUOTA_ADJUSTMENTS a
+				WHERE a.QUOTA_NAME = u.QUOTA_NAME
+					AND a.SUBSCRIPTION_ID = u.SUBSCRIPTION_ID
+					AND LOWER(a.REQUEST_STATUS) IN ('submitted','active','inprogress','partiallycompleted')
+					AND a.CREATED_AT >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+			) THEN TRUE ELSE FALSE END AS has_pending_adjustment,
+			COALESCE(TO_VARCHAR(u.LAST_UPDATED), '') AS last_updated
+		FROM AZURE_QUOTA_USAGE u
+	` + usageWhereSQL + `
+		ORDER BY u.USAGE_PERCENT DESC
+	`
+
+	rows, err := h.DB.QueryContext(ctx, atRiskQuery, usageArgs...)
+	if err != nil {
+		return stats, nil, fmt.Errorf("at-risk query: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.AtRiskQuotaRow
+	for rows.Next() {
+		var r models.AtRiskQuotaRow
+		if err := rows.Scan(
+			&r.QuotaName, &r.Region, &r.CurrentUsage, &r.QuotaLimit,
+			&r.UsagePct, &r.HasOpenTicket, &r.HasPendingAdjustment, &r.LastUpdated,
+		); err != nil {
+			return stats, nil, fmt.Errorf("scan at-risk: %w", err)
+		}
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return stats, nil, fmt.Errorf("at-risk rows: %w", err)
+	}
+	if results == nil {
+		results = []models.AtRiskQuotaRow{}
+	}
+
+	return stats, results, nil
+}
+
+func (h *Handler) fetchOverviewQuotaRows(ctx context.Context) ([]models.OverviewQuotaRow, error) {
+	query := `
+		SELECT
+			COALESCE(REGION, ''),
+			COALESCE(TENANT_ID, ''),
+			COALESCE(SUBSCRIPTION_ID, ''),
+			COALESCE(SUBSCRIPTION_NAME, ''),
+			COALESCE(INSTANCE_TYPE, ''),
+			COALESCE(QUOTA_NAME, ''),
+			COALESCE(CURRENT_USAGE, 0),
+			COALESCE(QUOTA_LIMIT, 0),
+			ROUND(COALESCE(USAGE_PERCENT, 0), 2),
+			COALESCE(TO_VARCHAR(LAST_UPDATED), '')
+		FROM AZURE_QUOTA_USAGE
+		WHERE LAST_UPDATED >= DATEADD(day, -1, CURRENT_TIMESTAMP())
+		ORDER BY USAGE_PERCENT DESC
+	`
+
+	rows, err := h.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query raw quotas: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.OverviewQuotaRow
+	for rows.Next() {
+		var r models.OverviewQuotaRow
+		if err := rows.Scan(
+			&r.Region, &r.TenantID, &r.SubscriptionID, &r.SubscriptionName,
+			&r.InstanceType, &r.QuotaName, &r.CurrentUsage, &r.QuotaLimit,
+			&r.UsagePct, &r.LastUpdated,
+		); err != nil {
+			return nil, fmt.Errorf("scan raw quota: %w", err)
+		}
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("raw quotas rows: %w", err)
+	}
+	if results == nil {
+		results = []models.OverviewQuotaRow{}
+	}
+	return results, nil
+}
+
+func (h *Handler) fetchOverviewAdjustmentRows(ctx context.Context) ([]models.OverviewAdjustmentRow, error) {
+	query := `
+		SELECT
+			COALESCE(QUOTA_NAME, ''),
+			COALESCE(REGION, ''),
+			COALESCE(TENANT_ID, ''),
+			COALESCE(SUBSCRIPTION_ID, ''),
+			COALESCE(INSTANCE_TYPE, ''),
+			COALESCE(REQUEST_STATUS, ''),
+			COALESCE(CSP_SUPPORT_REQUEST_ID, ''),
+			COALESCE(TO_VARCHAR(CREATED_AT), '')
+		FROM AZURE_QUOTA_ADJUSTMENTS
+		ORDER BY CREATED_AT DESC
+	`
+
+	rows, err := h.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query raw adjustments: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.OverviewAdjustmentRow
+	for rows.Next() {
+		var r models.OverviewAdjustmentRow
+		if err := rows.Scan(
+			&r.QuotaName, &r.Region, &r.TenantID, &r.SubscriptionID,
+			&r.InstanceType, &r.RequestStatus, &r.CspSupportRequestID, &r.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan raw adjustment: %w", err)
+		}
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("raw adjustments rows: %w", err)
+	}
+	if results == nil {
+		results = []models.OverviewAdjustmentRow{}
+	}
+	return results, nil
 }

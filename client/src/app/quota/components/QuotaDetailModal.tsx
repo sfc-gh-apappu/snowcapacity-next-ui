@@ -3,13 +3,13 @@
 import { useEffect } from 'react';
 import { X, BarChart3, ArrowUpDown, Headphones, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
-import type { QuotaUsageItem, QuotaAdjustment, SupportCase } from '../constants';
-import { ADJUSTMENT_STATUS_STYLES, CASE_STATUS_STYLES } from '../constants';
+import type { OverviewQuotaRow, QuotaAdjustmentRow } from '../constants';
+import { getAdjustmentStatusStyle } from '../constants';
 
 type ModalData =
-  | { type: 'usage'; data: QuotaUsageItem }
-  | { type: 'adjustment'; data: QuotaAdjustment }
-  | { type: 'support'; data: SupportCase };
+  | { type: 'usage'; data: OverviewQuotaRow }
+  | { type: 'adjustment'; data: QuotaAdjustmentRow }
+  | { type: 'support'; data: QuotaAdjustmentRow };
 
 interface QuotaDetailModalProps {
   entry: ModalData | null;
@@ -98,8 +98,8 @@ export default function QuotaDetailModal({ entry, onClose }: QuotaDetailModalPro
 
 /* ─── Current Usage ─── */
 
-function UsageContent({ data }: { data: QuotaUsageItem }) {
-  const pct = Math.round((data.usage / data.limit) * 100 * 10) / 10;
+function UsageContent({ data }: { data: OverviewQuotaRow }) {
+  const pct = data.usagePct;
 
   return (
     <>
@@ -116,7 +116,7 @@ function UsageContent({ data }: { data: QuotaUsageItem }) {
         <div className="flex items-end justify-between mb-3">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Usage</p>
-            <p className="text-2xl font-bold text-white tabular-nums">{data.usage} <span className="text-sm text-gray-500 font-normal">/ {data.limit}</span></p>
+            <p className="text-2xl font-bold text-white tabular-nums">{data.currentUsage} <span className="text-sm text-gray-500 font-normal">/ {data.quotaLimit}</span></p>
           </div>
           <p className={`text-2xl font-bold tabular-nums ${getPctColor(pct)}`}>{pct}%</p>
         </div>
@@ -132,6 +132,7 @@ function UsageContent({ data }: { data: QuotaUsageItem }) {
       <div className="space-y-0 divide-y divide-[#1a1a1a]">
         <DetailRow label="Subscription Name" value={data.subscriptionName} />
         <CopyableRow label="Subscription ID" value={data.subscriptionId} />
+        <CopyableRow label="Tenant ID" value={data.tenantId} />
         <DetailRow label="Region" value={data.region} />
         <DetailRow label="Last Updated" value={data.lastUpdated} />
       </div>
@@ -141,7 +142,7 @@ function UsageContent({ data }: { data: QuotaUsageItem }) {
 
 /* ─── Quota Adjustment ─── */
 
-function AdjustmentContent({ data }: { data: QuotaAdjustment }) {
+function AdjustmentContent({ data }: { data: QuotaAdjustmentRow }) {
   return (
     <>
       {/* Header */}
@@ -152,25 +153,25 @@ function AdjustmentContent({ data }: { data: QuotaAdjustment }) {
             {data.instanceType}
           </span>
         </div>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${ADJUSTMENT_STATUS_STYLES[data.status]}`}>
-          {formatStatus(data.status)}
+        <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getAdjustmentStatusStyle(data.requestStatus)}`}>
+          {formatStatus(data.requestStatus)}
         </span>
       </div>
 
-      {/* Usage + Limits */}
+      {/* Limits */}
       <div className="bg-black/50 rounded-xl p-4 border border-[#1a1a1a]">
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Usage</p>
-            <p className="text-xl font-bold text-white tabular-nums">{data.usage}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Previous Limit</p>
+            <p className="text-xl font-bold text-white tabular-nums">{data.limitBeforeAdjustment}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Limit</p>
-            <p className="text-xl font-bold text-white tabular-nums">{data.limit}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Requested</p>
+            <p className="text-xl font-bold text-white tabular-nums">{data.requestedNewLimit}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Usage %</p>
-            <p className={`text-xl font-bold tabular-nums ${getPctColor(data.usagePct)}`}>{data.usagePct}%</p>
+            <p className={`text-xl font-bold tabular-nums ${getPctColor(data.usagePercent)}`}>{data.usagePercent}%</p>
           </div>
         </div>
       </div>
@@ -179,7 +180,13 @@ function AdjustmentContent({ data }: { data: QuotaAdjustment }) {
       <div className="space-y-0 divide-y divide-[#1a1a1a]">
         <DetailRow label="Subscription Name" value={data.subscriptionName} />
         <CopyableRow label="Subscription ID" value={data.subscriptionId} />
+        <CopyableRow label="Tenant ID" value={data.tenantId} />
         <DetailRow label="Region" value={data.region} />
+        <DetailRow label="Requestor" value={data.requestor} />
+        {data.justification && <DetailRow label="Justification" value={data.justification} />}
+        {data.message && <DetailRow label="Message" value={data.message} />}
+        {data.cspSupportRequestId && <CopyableRow label="CSP Support ID" value={data.cspSupportRequestId} />}
+        <DetailRow label="Created" value={data.createdAt} />
         <DetailRow label="Last Updated" value={data.lastUpdated} />
       </div>
     </>
@@ -188,17 +195,17 @@ function AdjustmentContent({ data }: { data: QuotaAdjustment }) {
 
 /* ─── Support Case ─── */
 
-function SupportContent({ data }: { data: SupportCase }) {
+function SupportContent({ data }: { data: QuotaAdjustmentRow }) {
   return (
     <>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">{data.quotaName}</h3>
-          <span className="text-sm text-[#29B5E8] font-medium mt-0.5 block">{data.supportId}</span>
+          <span className="text-sm text-[#29B5E8] font-medium mt-0.5 block">{data.cspSupportRequestId}</span>
         </div>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${CASE_STATUS_STYLES[data.status]}`}>
-          {formatStatus(data.status)}
+        <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getAdjustmentStatusStyle(data.requestStatus)}`}>
+          {formatStatus(data.requestStatus)}
         </span>
       </div>
 
@@ -206,16 +213,16 @@ function SupportContent({ data }: { data: SupportCase }) {
       <div className="bg-black/50 rounded-xl p-4 border border-[#1a1a1a]">
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Current Limit</p>
-            <p className="text-xl font-bold text-white tabular-nums">{data.currentLimit.toLocaleString()}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Previous Limit</p>
+            <p className="text-xl font-bold text-white tabular-nums">{data.limitBeforeAdjustment}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Requested</p>
-            <p className="text-xl font-bold text-white tabular-nums">{data.requested.toLocaleString()}</p>
+            <p className="text-xl font-bold text-white tabular-nums">{data.requestedNewLimit}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Usage %</p>
-            <p className={`text-xl font-bold tabular-nums ${getPctColor(data.usagePct)}`}>{data.usagePct}%</p>
+            <p className={`text-xl font-bold tabular-nums ${getPctColor(data.usagePercent)}`}>{data.usagePercent}%</p>
           </div>
         </div>
       </div>
@@ -224,9 +231,13 @@ function SupportContent({ data }: { data: SupportCase }) {
       <div className="space-y-0 divide-y divide-[#1a1a1a]">
         <DetailRow label="Subscription Name" value={data.subscriptionName} />
         <CopyableRow label="Subscription ID" value={data.subscriptionId} />
+        <CopyableRow label="Tenant ID" value={data.tenantId} />
         <DetailRow label="Region" value={data.region} />
+        <DetailRow label="Instance Type" value={data.instanceType} />
         <DetailRow label="Requestor" value={data.requestor} />
-        <DetailRow label="Created" value={data.created} />
+        {data.justification && <DetailRow label="Justification" value={data.justification} />}
+        {data.message && <DetailRow label="Message" value={data.message} />}
+        <DetailRow label="Support Request Date" value={data.cspSupportRequestTimestamp || data.createdAt} />
         <DetailRow label="Last Updated" value={data.lastUpdated} />
       </div>
     </>

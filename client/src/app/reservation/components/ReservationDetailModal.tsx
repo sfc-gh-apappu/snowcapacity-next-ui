@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { X, ClipboardList } from 'lucide-react';
+import { X, ClipboardList, DollarSign } from 'lucide-react';
 import type { ReservationDetail } from '../constants';
 import { STATE_STYLES } from '../constants';
 
@@ -83,6 +83,9 @@ export default function ReservationDetailModal({ item, onClose }: Props) {
             </div>
           </div>
 
+          {/* Cost & Utilization card */}
+          <CostCard item={item} />
+
           {/* Detail fields */}
           <div className="space-y-0 divide-y divide-[#1a1a1a]">
             <DetailRow label="AWS Reservation ID" value={item.reservationId} mono />
@@ -100,6 +103,53 @@ export default function ReservationDetailModal({ item, onClose }: Props) {
             <DetailRow label="End Date" value={item.endDate ?? 'N/A'} />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CostCard({ item }: { item: ReservationDetail }) {
+  const utilPct = item.totalInstanceCount > 0
+    ? Math.round((item.usedInstanceCount / item.totalInstanceCount) * 100)
+    : 0;
+  const unusedRatio = item.totalInstanceCount > 0
+    ? item.availableInstanceCount / item.totalInstanceCount
+    : 0;
+  const unusedCost = Math.round(item.monthlyRate * unusedRatio);
+
+  const barColor = utilPct >= 90
+    ? 'from-emerald-500 to-emerald-600'
+    : utilPct >= 60
+      ? 'from-[#29B5E8] to-[#56C9F5]'
+      : utilPct >= 30
+        ? 'from-yellow-500 to-amber-400'
+        : 'from-red-400 to-orange-400';
+
+  return (
+    <div className="bg-black/50 rounded-xl p-4 border border-[#1a1a1a]">
+      <div className="flex items-center gap-2 mb-3">
+        <DollarSign className="w-4 h-4 text-[#29B5E8]" />
+        <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Cost &amp; Utilization</span>
+      </div>
+      <div className="grid grid-cols-3 gap-4 mb-3">
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Monthly Rate</p>
+          <p className="text-lg font-bold text-white tabular-nums">${item.monthlyRate.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Unused Cost</p>
+          <p className="text-lg font-bold text-red-400 tabular-nums">${unusedCost.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Utilization</p>
+          <p className="text-lg font-bold text-white tabular-nums">{utilPct}%</p>
+        </div>
+      </div>
+      <div className="relative bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-500`}
+          style={{ width: `${utilPct}%` }}
+        />
       </div>
     </div>
   );
